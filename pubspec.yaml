@@ -1,14 +1,19 @@
 name: ffi_url_launcher
-description: A starting point for Dart libraries or applications.
-version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+description: >-
+  Open a URL in the system's registered handler on Windows and macOS. Pure Dart,
+  with no Flutter dependency and no native sources to compile.
+version: 0.1.0
 
 environment:
   sdk: ^3.11.5
 
-# Add regular dependencies here.
 dependencies:
-  # path: ^1.9.0
+  # The allocator and UTF-16 marshalling `dart:ffi` does not ship. Pure Dart,
+  # maintained by the Dart team, and the only runtime dependency — deliberately
+  # not `package:win32`, which declares `platforms: windows:` (misstating this
+  # package's support) and would pull in thousands of generated bindings to call
+  # four functions.
+  ffi: ^2.1.4
 
 dev_dependencies:
   lints: ^6.0.0

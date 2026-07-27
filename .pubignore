@@ -1,0 +1,12 @@
+# pub uses this instead of .gitignore when building the published archive, so
+# the .gitignore entries are repeated here.
+.dart_tool/
+pubspec.lock
+
+# Repo tooling, not package documentation. `docs/agents/` holds the agent
+# workflow configuration and `.scratch/` the design record; shipping either
+# would also trip pub's layout convention, which reserves the top-level `doc/`
+# name for package documentation and refuses to publish while `docs/` exists.
+docs/
+.scratch/
+.github/
