@@ -18,6 +18,9 @@ Uri.parse(r'C:\Windows\System32\calc.exe')
 | `C:\Windows\System32\calc.exe` | 스킴 길이 1 → 드라이브 문자 |
 | `\\attacker\share\evil.exe` | 스킴 없음 |
 | `evil.bat` | 스킴 없음 |
+| `''` (빈 문자열) | 스킴 없음 |
+
+> **실측 근거 추가 (티켓 01 구현 중).** 마지막 행은 가상의 위협이 아니다. Windows 11에서 `ShellExecuteW('')`를 부르면 **탐색기 창이 열리고 42(성공)를 반환한다** — 화면에서 확인함. 즉 지금 `launchUrlSync(Uri.parse(''))`는 엉뚱한 창을 띄우고 `true`를 돌려준다. 설정 파일의 빈 값이나 치환되지 않은 템플릿 변수가 흘러들면 그대로 재현된다. 이 티켓의 `hasScheme` 필수 검사가 정확히 이걸 막는다. 근거: `docs/agents/lessons.md` #4.
 
 RFC 3986상 1글자 스킴은 합법이지만 실제로 등록·사용되는 것이 없어, Windows에서 1글자 스킴은 사실상 드라이브 문자다.
 

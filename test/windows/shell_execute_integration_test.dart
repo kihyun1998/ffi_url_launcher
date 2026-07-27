@@ -57,23 +57,39 @@ void main() {
     });
   });
 
-  group('what an unregistered scheme actually does', () {
-    // Recorded, not asserted as desirable. On Windows 11 the shell answers 42
-    // — success — for a scheme nothing is registered to handle, because what it
-    // "successfully launched" is its own look-for-an-app UI. It does *not*
-    // answer SE_ERR_NOASSOC.
+  group('inputs that report success while opening something else', () {
+    // Recorded, not asserted as desirable. Measured on Windows 11 (26200) with
+    // the window watched on screen, each call run on its own so the window
+    // could be attributed:
     //
-    // The consequence: `launch()` reporting `true` does not mean the URL was
-    // opened by anything the user wanted. `canLaunchUrl` — which reads the
-    // registry rather than asking the shell — is the only reliable answer, and
-    // that is why it is a separate operation rather than a convenience.
+    //   'zzznotreal-ffiurllauncher://x' -> 42, raises the "you'll need a new
+    //                                      app to open this link" picker
+    //   ''                              -> 42, opens File Explorer
     //
-    // This test is skipped because confirming it costs a UI popup on the
-    // developer's desktop. Unskip it deliberately when re-measuring.
+    // 42 is greater than 32, so both are "success". What the shell successfully
+    // launched is something of its own. SE_ERR_NOASSOC is not reachable through
+    // a URL scheme at all here, so `launch()` returning `true` does not mean
+    // anything the caller wanted opened it — `canLaunchUrl`, which reads the
+    // registry instead of asking the shell, is the only reliable answer.
+    //
+    // Both are skipped: confirming either costs a window on the developer's
+    // desktop, which is also why neither may ever run in CI. Unskip
+    // deliberately when re-measuring on a new Windows build.
     test(
-      'reports success even though nothing handles it',
+      'an unregistered scheme reports success and raises the app picker',
       () => expect(shellExecuteOpen('zzznotreal-ffiurllauncher://x'), 42),
-      skip: 'opens a "how do you want to open this" UI; measured by hand',
+      skip: 'opens the "new app needed" dialog; measured by hand',
+    );
+
+    test(
+      'the empty string reports success and opens File Explorer',
+      // The worse of the two: a dialog at least tells the user something went
+      // wrong, while Explorer appearing looks like an unrelated accident and
+      // the call still answers `true`. An empty or unsubstituted config value
+      // reaching launchUrl reproduces this exactly — and ticket 02's shape
+      // check, which requires a scheme, is what blocks it.
+      () => expect(shellExecuteOpen(''), 42),
+      skip: 'opens a File Explorer window; measured by hand',
     );
   });
 }

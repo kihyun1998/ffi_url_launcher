@@ -143,10 +143,27 @@ C:\...does-not-exist\nope.zzzq  -> status=2    SE_ERR_FNF
 file:///C:/zzz-nope.zzzq        -> status=2    SE_ERR_FNF
 ```
 
-**42 is greater than 32, so it is success.** What the shell successfully
-launched is its own "how do you want to open this?" / look-for-an-app-in-the-
-Store UI. `SE_ERR_NOASSOC` is not reachable through a URL scheme at all on this
-Windows version — and the **empty string** also reports success.
+**42 is greater than 32, so it is success.** `SE_ERR_NOASSOC` is not reachable
+through a URL scheme at all on this Windows version.
+
+**What the shell actually did — watched on screen, not inferred.** Each call was
+re-run on its own so the window could be attributed to one input:
+
+| Input | Status | What appeared |
+|---|---|---|
+| `zzznotreal-ffiurllauncher://x` | 42 | the **"이 링크를 열려면 새 앱이 필요합니다"** dialog (Windows' "you'll need a new app to open this link" handler picker) |
+| `''` (empty string) | 42 | a **File Explorer window** |
+
+So "success" means *the shell successfully launched something of its own* — a
+picker dialog, or Explorer. Neither is what the caller asked for, and both are
+reported identically to a real launch.
+
+The empty-string row is the worse of the two. A dialog at least tells the user
+something went wrong; Explorer opening looks like an unrelated accident while
+the function returns `true`. An empty or unsubstituted value reaching
+`launchUrl` from a config file reproduces it exactly. **Ticket 02's shape check
+blocks it** — the empty string has no scheme — which turns that ticket from a
+guard against a hypothetical into a fix for a measured case.
 
 **Cost had it stood:**
 

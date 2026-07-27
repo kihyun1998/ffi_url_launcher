@@ -113,13 +113,18 @@ finds another.
 - **`ShellExecuteW` returns once the shell has started a process**, not once the
   target has loaded. It cannot report whether the page opened.
 - **An unregistered *scheme* answers 42 — success — not `SE_ERR_NOASSOC`.**
-  Measured on Windows 11 (26200): `zzznotreal://x` and even the empty string
-  both return 42. What the shell "successfully launched" is its own
-  look-for-an-app UI. `SE_ERR_NOASSOC` is therefore **not reachable through a
-  URL scheme** on modern Windows, and `launch()` returning `true` does not mean
-  anything the user wanted opened it. The registry check (`canLaunchUrl`) is the
-  only reliable answer, which is why it is a separate operation rather than a
-  convenience. See [`lessons.md`](lessons.md) #4.
+  Measured on Windows 11 (26200), with the window watched on screen:
+  `zzznotreal://x` returns 42 and raises the *"you'll need a new app to open
+  this link"* picker; the **empty string** returns 42 and opens **File
+  Explorer**. What the shell "successfully launched" is something of its own, so
+  `SE_ERR_NOASSOC` is **not reachable through a URL scheme** on modern Windows
+  and `launch()` returning `true` does not mean anything the user wanted opened.
+  The registry check (`canLaunchUrl`) is the only reliable answer, which is why
+  it is a separate operation rather than a convenience. See
+  [`lessons.md`](lessons.md) #4.
+- **Anything handed to `ShellExecuteW` can open a window, including inputs that
+  look inert.** The empty string is the proof. Never call the launch path in CI
+  with an input that has not been measured to be UI-free.
 - **A path that does not exist answers 2 (`SE_ERR_FNF`), with no UI.** This is
   the reachable error code, and the one the real round-trip proof uses.
 - **`RegQueryValueExW` does not guarantee a null terminator** on string values;

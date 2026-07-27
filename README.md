@@ -70,9 +70,15 @@ Uri.parse(r'C:\Windows\System32\calc.exe').hasScheme;   // true
 ```
 
 `ShellExecuteW` accepts the forward-slashed form of that and **executes it**.
-Until the shape check lands, do not pass URLs from an untrusted source — a
-network response, a config file, standard input — without checking them
-yourself.
+
+An **empty** URL is not inert either. Measured on Windows 11:
+`launchUrlSync(Uri.parse(''))` opens a File Explorer window and returns `true`.
+An unsubstituted template value or a blank config entry reaching this function
+reproduces it.
+
+Until the shape check lands, do not pass URLs from an untrusted or
+unvalidated source — a network response, a config file, standard input —
+without checking them yourself.
 
 ## Platform support
 
