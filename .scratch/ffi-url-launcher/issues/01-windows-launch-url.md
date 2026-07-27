@@ -28,3 +28,6 @@
 - [ ] pubspec의 런타임 의존성이 `ffi` 하나뿐이고, `flutter` 의존이 없으며, 버전이 `0.1.0`이다
 - [ ] 스캐폴딩 잔재(`Awesome` 클래스, 기본 예제, 기본 테스트)가 제거된다
 - [ ] `dart analyze`가 경고 없이 통과한다
+- [ ] `file:` URL이 비ASCII 경로에서 동작한다 — `ShellExecuteW`는 `file:` URL의 멀티바이트 UTF-8 퍼센트 이스케이프를 디코드하지 않는데 `Uri.toString()`은 항상 그걸 만들어내므로, 네이티브 경로로 변환한 뒤 넘긴다
+
+> **추가된 criterion (구현 중 발견).** 원래 이 티켓에는 `file:` 처리가 아예 없었다. 최초에 레퍼런스 C++를 **요약 fetch로 읽어서** `LaunchUrl` 안의 `if (url.find("file:") == 0)` 분기가 통째로 누락됐기 때문이다 — 요약은 "어떤 함수를 부르는가"를 맞게 답하고 "어떤 조건에서 무엇을 하는가"를 버렸다. 실측: 존재하는 `한글파일.txt`가 `SE_ERR_FNF`(2)로 실패했다. 근거는 `docs/agents/lessons.md` #5.

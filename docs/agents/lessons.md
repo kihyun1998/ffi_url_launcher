@@ -185,3 +185,59 @@ marshal → call → decode → map chain.
 platform stopped producing that code. Only running it says so.
 
 ---
+
+## #5 — A summarizing fetch dropped a branch, and seven tickets were written on top of it — Steps 1, 6
+
+**Rule it proves:** never use a summarizing fetch on a reference file; and an
+error's cost scales with how early it sits, not with its size.
+
+`url_launcher_plugin.cpp` was first read through a summarizing fetch. The
+summary correctly listed *which* Win32 functions the file calls. It silently
+dropped what happens **inside** them:
+
+- `RegOpenKeyExW` is called with `KEY_QUERY_VALUE`, not `KEY_READ` — the
+  argument was gone, and the ticket was written with the wrong one.
+- `LaunchUrl` has a **branch**: when the URL starts with `file:` it runs
+  `UrlUnescapeA(..., URL_UNESCAPE_INPLACE)` first, under the comment
+  *"ShellExecuteW does not process %-encoded UTF8 strings in file URLs."* The
+  branch was absent from the summary entirely, so it was absent from all seven
+  tickets.
+
+**The defect it caused.** `Uri.toString()` always percent-encodes non-ASCII, and
+`ShellExecuteW` decodes ASCII `%20` in a `file:` URL but **not** multi-byte
+UTF-8 escapes. Measured end to end against a file that exists:
+
+```
+file exists      : true
+Uri.toString()   : file:///C:/…/%ED%95%9C%EA%B8%80%ED%8C%8C%EC%9D%BC.txt
+launchUrlSync    : UrlLaunchException — the file was not found (code 2)
+```
+
+Confirmed independently with `PathCreateFromUrlW`, the shell's own URL→path
+converter: `%20` decodes, `%ED%95%9C` is read as one wide character each.
+
+This package was **more exposed than the reference**, not less: the C++ receives
+whatever string its Dart caller passed, while this API takes a `Uri` and
+therefore *manufactures* the broken encoding. A user with a Korean, Japanese or
+Cyrillic path had no working `file:` support at all.
+
+**Cost of where the error sat.** The bad read happened before any code existed,
+so it propagated into the design record, the `theflow.md` Step 4 proof method,
+and ticket 06's CI assertion. Closing it meant amending four documents, not
+editing one line. Had the same mistake been made during implementation it would
+have cost minutes.
+
+**What replaced it, and why it is not the reference's fix.** `Uri.toFilePath`
+rather than unescaping the URL string. Measured, it is better in two ways the
+reference cannot be, because C++ had no URI parser:
+
+| Input | reference's unescape | `toFilePath` |
+|---|---|---|
+| file genuinely named `a%20b.txt` | `a b.txt` — wrong file, or none | `a%20b.txt` |
+| `file://server/share/x` | left as a URL | `\\server\share\x` |
+
+This is the bindings' tie-breaker in action: the reference decides *which* call
+to make and in what order; the marshalling is derived for the language actually
+being written.
+
+---

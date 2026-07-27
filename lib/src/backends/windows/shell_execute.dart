@@ -56,6 +56,29 @@ String describeShellExecuteStatus(int status) => switch (status) {
   _ => 'ShellExecuteW returned $status',
 };
 
+/// The string `ShellExecuteW` should be handed for [url].
+///
+/// Every URL but one passes through as written. A **`file:`** URL does not:
+/// `ShellExecuteW` decodes ASCII percent-escapes in one but leaves multi-byte
+/// UTF-8 escapes alone, so `file:///C:/%ED%95%9C.txt` is looked up literally
+/// and an existing file comes back as `SE_ERR_FNF`. `Uri.toString()` always
+/// produces exactly that encoding, so the package would otherwise turn a
+/// working input into a failing one — measured in `docs/agents/lessons.md` #5.
+///
+/// The reference implementation unescapes the whole URL string with
+/// `UrlUnescapeA` and keeps the `file://` prefix. This converts to a native
+/// path instead, which is the same fix done with a tool C++ did not have and is
+/// better in two measured ways: a file genuinely named `a%20b.txt` survives
+/// (unescaping the URL string turns it into `a b.txt`, opening the wrong file
+/// or none), and an authority becomes a real UNC path rather than being left
+/// as `file://server/share`.
+///
+/// Throws [UnsupportedError] for a `file:` URL carrying a query or fragment.
+/// Such a URL is not addressing a file, and letting it through only buys the
+/// caller a "file not found" that sends them looking in the wrong place.
+String shellTargetFor(Uri url) =>
+    url.scheme == 'file' ? url.toFilePath(windows: true) : url.toString();
+
 /// Asks the shell to open [target] with its registered handler.
 ///
 /// Returns the raw `ShellExecuteW` status; interpreting it is

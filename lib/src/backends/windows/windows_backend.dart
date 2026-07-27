@@ -26,7 +26,7 @@ final class WindowsUrlLauncherBackend implements UrlLauncherBackend {
 
   @override
   bool launch(Uri url) {
-    final status = shellExecute(url.toString());
+    final status = shellExecute(shellTargetFor(url));
 
     return switch (interpretShellExecuteStatus(status)) {
       ShellExecuteOutcome.launched => true,

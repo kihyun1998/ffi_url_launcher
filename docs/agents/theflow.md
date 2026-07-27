@@ -162,6 +162,23 @@ finds another.
   unassociated extension. Measured on a real machine.
 - **`ShellExecuteW` accepts forward slashes in a drive path.** This is what makes
   the `Uri`-scheme-of-length-1 case an execution vector rather than a curiosity.
+- **`ShellExecuteW` decodes ASCII percent-escapes in a `file:` URL but not
+  multi-byte UTF-8 ones.** `%20` becomes a space; `%ED%95%9C` is read as three
+  literal characters. The reference works around it with `UrlUnescapeA`; this
+  package converts to a native path with `Uri.toFilePath` instead. See
+  [`lessons.md`](lessons.md) #5.
+- **`Uri.toString()` is not identity.** It percent-encodes non-ASCII, spaces and
+  `<>"`, and lowercases the scheme. Any reasoning about what the shell receives
+  must be done on `toString()`'s output, not on the string the caller wrote —
+  the package *manufactures* the encoding that breaks `file:`.
+- **`Uri.toFilePath` throws for a query or fragment**, and for any scheme but
+  `file`. Measured: `file:///C:/a.txt?q=1` and `#frag` both raise
+  `UnsupportedError` naming the offending component.
+- **KnownDLLs decides whether a bare DLL name is safe**, and the family rule is
+  to not depend on knowing which. `shell32`, `advapi32`, `ole32` are on the
+  list; `dwrite` is not, and a hostile `dwrite.dll` beside the executable *was*
+  loaded in a probe while a hostile `shell32.dll` was ignored. Load system DLLs
+  by absolute `%SystemRoot%\System32` path regardless.
 
 **macOS**
 
