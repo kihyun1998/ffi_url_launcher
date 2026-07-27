@@ -1,5 +1,8 @@
 # 03 — Windows에서 `canLaunchUrl`이 앱 설치 여부를 답한다
 
+> **GitHub issue: #3** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** 호출자가 URL을 열기 전에 "이걸 처리할 앱이 이 시스템에 있나"를 물어볼 수 있다. 아무것도 열지 않으므로 부작용이 없고, 따라서 CI에서 실제 OS 상대로 검증할 수 있는 첫 기능이다.
 
 **설계 배경**

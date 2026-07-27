@@ -1,5 +1,8 @@
 # 04 — macOS에서 URL이 실제로 열린다
 
+> **GitHub issue: #4** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** macOS에서 `launchUrl`이 기본 브라우저를 실제로 띄운다. 동시에 플랫폼 분기가 실체화되면서, 지원하지 않는 OS에서 호출하면 조용히 실패하는 대신 명확한 `UnsupportedError`가 난다.
 
 **설계 배경**

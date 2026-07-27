@@ -1,5 +1,8 @@
 # 06 — CI가 Windows·macOS 양쪽에서 초록불이 된다
 
+> **GitHub issue: #6** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** PR을 올리면 실제 Windows와 실제 macOS에서 테스트가 돌아간다. 손으로 두 대의 머신을 오가며 확인하던 것이 자동화된다. 그리고 이 패키지의 핵심 설계 약속 — "빌드 훅 없이 `dart compile exe`가 된다" — 이 회귀하면 CI가 잡는다.
 
 **설계 배경**

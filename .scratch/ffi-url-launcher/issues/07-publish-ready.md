@@ -1,5 +1,8 @@
 # 07 — pub.dev에 올릴 수 있는 상태가 된다
 
+> **GitHub issue: #7** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** 처음 보는 Dart CLI 개발자가 pub.dev에서 이 패키지를 발견하고, README만 읽고 올바르게 — 그리고 안전하게 — 쓸 수 있다. `dart pub publish --dry-run`이 경고 없이 통과한다.
 
 **설계 배경**

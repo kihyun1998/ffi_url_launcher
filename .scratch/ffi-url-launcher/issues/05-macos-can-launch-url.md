@@ -1,5 +1,8 @@
 # 05 — macOS에서 `canLaunchUrl`이 답한다
 
+> **GitHub issue: #5** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** macOS에서도 URL을 열기 전에 처리 가능한 앱이 있는지 물어볼 수 있다. Windows와 같은 API, 같은 의미. 이 티켓이 끝나면 두 플랫폼의 공개 API 표면이 완전히 대칭이 된다.
 
 **설계 배경**

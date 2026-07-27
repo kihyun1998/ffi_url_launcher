@@ -348,10 +348,12 @@ Everything else is gated on enumeration risk as usual.
   record: none.** That empty list is what the filing step checks before proposing
   a spine, so a cluster with a home never gets a second one — keep it current as
   records land.
-- **The issue tracker** is the decision trail until `docs/adr/` exists. The
-  design record for the initial slice lives in
-  `.scratch/ffi-url-launcher/issues/` — seven tickets that carry the *why*, not
-  only the *what*.
+- **The issue tracker** is the decision trail until `docs/adr/` exists — GitHub
+  Issues, per `issue-tracker.md`. **Open spines: #8** (*nothing normalises a URL
+  before it reaches the shell*), roster in its comments. Check that list before
+  proposing another anchor. The long-form design records live in
+  `.scratch/ffi-url-launcher/issues/`; each names the issue that carries its
+  state, and the issue carries the labels and the blocking edges.
 
 **What earns a record here:** two or more of theflow's promotion triggers in one
 pass. Below that bar, one trigger is a decision in its issue, attached to (or

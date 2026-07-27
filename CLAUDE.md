@@ -86,6 +86,10 @@ trail is the issue tracker plus `.scratch/ffi-url-launcher/issues/`.
 
 ### Issue tracker
 
-GitHub Issues for `kihyun1998/ffi_url_launcher`, driven by the `gh` CLI. No
-`docs/agents/issue-tracker.md` or `triage-labels.md` has been authored for this
-repo yet — run the relevant setup skill before relying on a label vocabulary.
+GitHub Issues for `kihyun1998/ffi_url_launcher`, driven by the `gh` CLI. See
+`docs/agents/issue-tracker.md` for the conventions and how blocking edges are
+represented, and `docs/agents/triage-labels.md` for the label vocabulary — where
+`ready-for-agent` and `needs-triage` are separated by **evidence**, not urgency.
+
+The long-form design records live in `.scratch/ffi-url-launcher/issues/`; each
+names the GitHub issue that carries its state.

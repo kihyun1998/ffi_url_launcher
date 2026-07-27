@@ -1,5 +1,8 @@
 # 02 — 안전하지 않은 URL이 거부된다
 
+> **GitHub issue: #2** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** 로컬 실행파일 경로를 URL인 척 넘겨 임의 실행을 유도하는 경로를 기본값에서 막는다. 막힌 호출은 조용히 실패하지 않고 전용 예외로 알린다. 이 방어가 방해가 되는 호출자는 명시적으로 끌 수 있다.
 
 **설계 배경**

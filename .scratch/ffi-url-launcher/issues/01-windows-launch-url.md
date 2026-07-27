@@ -1,5 +1,8 @@
 # 01 — Windows에서 URL이 실제로 열린다
 
+> **GitHub issue: #1** — the working surface. This file is the long-form
+> design record; the issue carries state, labels and blocking edges.
+
 **What to build:** Windows에서 `launchUrl(Uri.parse('https://example.com'))`을 부르면 기본 브라우저가 실제로 뜬다. 예제를 실행해 눈으로 확인할 수 있다. 열 앱이 없으면 `false`를 돌려주고, 그 외 시스템 오류는 플랫폼 에러 코드를 담은 예외로 알린다.
 
 이 티켓이 트레이서 불릿이다 — 공개 API, 테스트 이음새, FFI 바인딩, 에러 매핑을 한 줄기로 관통한다. 현재 레포는 `dart create` 스캐폴딩(`Awesome` 클래스) 상태이므로 그 정리도 여기 포함된다.
