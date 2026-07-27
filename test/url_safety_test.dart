@@ -160,6 +160,33 @@ void main() {
       }
     });
 
+    test('a scheme-only URL, for every scheme but file:', () {
+      // ADR-0001 case 4 — "names nothing → refuse" — is scoped to `file:` on
+      // purpose, and this pins that scoping so a later reading of the record
+      // does not widen it for consistency's sake.
+      //
+      // The difference is what the OS does with each. `file:` normalises to the
+      // current drive's root and opens a file browser there — a target the
+      // caller did not name. `mailto:` opens the mail client with a blank
+      // message, `ms-settings:` opens Settings, `https:` reaches the browser:
+      // each is that scheme's own idea of "no argument", which is the
+      // application's business and not this package's.
+      //
+      // Measured through the public API: https:/mailto:/ms-settings: all answer
+      // `true` from `canLaunchUrl`, `file:` is refused.
+      for (final url in ['https:', 'mailto:', 'ms-settings:', 'myapp:']) {
+        expect(
+          () => checkUrlShape(Uri.parse(url)),
+          returnsNormally,
+          reason: '"$url" is that scheme\'s own empty case, not ours to judge',
+        );
+      }
+      expect(
+        () => checkUrlShape(Uri.parse('file:')),
+        throwsA(isA<UnsafeUrlError>()),
+      );
+    });
+
     test('but not a file URL that does name something', () {
       // The rule is "names no file", not "looks unusual". A path with no drive
       // resolves against the current one and a missing file fails as

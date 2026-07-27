@@ -291,3 +291,56 @@ that were not measured, in a file whose entire purpose is marshalling nobody can
 check by eye.
 
 ---
+
+## #7 — The guards were right, the reasons written beside them were not — Step 5
+
+**Rule it proves:** a completeness pass earns its cost on the *reasons* as much
+as on the gaps; and the refuting lens is what stops a plausible improvement from
+shipping.
+
+The registry binding carries two input guards. Both were documented as defence
+with no measured consequence. A pass over the FFI measured what
+`RegOpenKeyExW` actually does with each, opening under `HKEY_CLASSES_ROOT`:
+
+```
+""                          status=0  handle=0x-80000000   <- the hive handle itself
+"\"                         status=0  handle=0x232         <- a real handle, HKCR root
+"https\shell\open\command"  status=0  handle=0x232
+"https"                     status=0  handle=0x232         (control)
+```
+
+Both **succeed**. The empty name returns the *predefined hive handle*, so
+without that guard the code closes a predefined key — Microsoft documents the
+consequence as *"The predefined handles are not thread safe. Closing a
+predefined handle in one thread affects any other threads that are using the
+handle."* Harmless here, with single-threadedness as the recorded condition
+rather than as an assumption. The bare separator reopens the HKCR root as a real
+handle; the example the comment gave, `https\shell\open\command`, was the weaker
+case. The reference implementation takes the empty-name path for input `":"`.
+
+**The refuting lens killed the pass's own proposal.** The first lens found that
+138 of 280 HKCR keys carrying `URL Protocol` have no `shell\open\command` —
+including `file`, `callto`, `sms`, `tel` — and read that as this package
+over-answering. Adding that second test would have been a plausible fix. The
+refuter checked it: `HKCR\claude` has `URL Protocol`, **zero subkeys**, and
+`Get-AppxPackage` lists Claude as installed. MSIX package activation bypasses
+`shell\open\command` entirely, so the "improvement" converts a documented
+over-answer into **false negatives** for every packaged app.
+
+**A scoping that was right but untested.** `canLaunchUrl(Uri.parse('https:'))`
+answers `true`, and so do `mailto:` and `ms-settings:`, while `file:` is
+refused. That asymmetry is correct — a scheme-only `file:` URL resolves to the
+current drive's root, a target the caller did not name, while the others are
+each application's own empty case — but nothing asserted it, so the next reading
+of ADR-0001 could widen case 4 "for consistency". There is a test for it now,
+and widening the rule takes it red.
+
+**Also cleared, with their ground:** no handle leak (500 deliberately leaked
+handles moved `GetProcessHandleCount` 143 → 643 → 143, validating the counter;
+40,000 real calls moved it by the one lazy DLL load). An embedded NUL truncates
+below the guard, but all five public routes — `Uri.parse`, `Uri(scheme:)`,
+percent-escapes, and `allowUnsafe` — raise `FormatException` first. The macOS
+per-URL / Windows per-scheme asymmetry the pass flagged as unrecorded is
+recorded twice already, in `theflow.md` and in ticket 03.
+
+---

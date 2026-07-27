@@ -30,8 +30,16 @@ abstract interface class UrlLauncherBackend {
   ///
   /// A `true` says a handler is **registered**, not that opening will succeed:
   /// the registered application may be missing, broken, or unable to handle
-  /// this particular URL. It is the strongest answer the OS offers without
-  /// launching anything, and it has no side effects.
+  /// this particular URL.
+  ///
+  /// A `false` says nothing is *registered*, which is not quite "this will not
+  /// open". Windows answers some schemes itself without a registry entry —
+  /// `shell:` has no key under `HKEY_CLASSES_ROOT` (measured) yet the shell
+  /// handles it — so a `false` can under-report. Treat it as "no application
+  /// claims this", which is the question the registry can answer.
+  ///
+  /// It is the strongest answer the OS offers without launching anything, and
+  /// it has no side effects.
   /// {@endtemplate}
   bool canOpen(Uri url);
 }

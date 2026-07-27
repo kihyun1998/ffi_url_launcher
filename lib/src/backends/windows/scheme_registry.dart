@@ -16,14 +16,30 @@ import 'system32.dart';
 /// for any reason is "no", never an exception: a caller asking *can this be
 /// opened* is not asking to be told the registry was busy.
 bool isSchemeRegistered(String scheme) {
+  // Both guards below exist because `RegOpenKeyExW` *succeeds* on these, and
+  // what it hands back is not a key for the scheme. Measured on Windows 11
+  // (26200), opening under `HKEY_CLASSES_ROOT`:
+  //
+  //   ""                          status=0  handle=0x-80000000  <- the hive itself
+  //   "\"                         status=0  handle=0x232        <- a real handle, HKCR root
+  //   "https\shell\open\command"  status=0  handle=0x232
+  //   "https"                     status=0  handle=0x232        (control)
+
+  // An empty subkey name returns the **predefined hive handle unchanged**, so
+  // without this the code would `RegCloseKey` a predefined key. Microsoft
+  // documents the consequence: "The predefined handles are not thread safe.
+  // Closing a predefined handle in one thread affects any other threads that
+  // are using the handle." Harmless while this package is single-threaded and
+  // the handle is re-derived per call — recorded with that as the condition,
+  // not as "it does not matter".
   if (scheme.isEmpty) return false;
-  // A scheme is a single key name, so a separator is not one. Defence in depth
-  // rather than a measured fix: `Uri.scheme` cannot contain a separator (the
-  // RFC grammar excludes it and `Uri.parse` rejects it), and without this guard
-  // `https\shell\open\command` opens that key and still answers `false` because
-  // no `URL Protocol` value lives there. Removing it changed no measured
-  // answer — kept because a caller reaching this seam directly is not bound by
-  // `Uri`'s grammar.
+
+  // A separator opens something real that is not the scheme's key — a bare `\`
+  // reopens the HKCR root. The answer would come out `false` anyway (no
+  // `URL Protocol` value lives at the root), so this is not a correctness fix;
+  // it stops the lookup from silently meaning something else. `Uri.scheme`
+  // cannot contain a separator, so this only guards a caller reaching the seam
+  // directly.
   if (scheme.contains(r'\') || scheme.contains('/')) return false;
 
   return using((arena) {
