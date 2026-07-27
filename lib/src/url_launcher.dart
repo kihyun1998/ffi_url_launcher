@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'url_launcher_backend.dart';
 import 'url_launcher_platform.dart';
+import 'url_safety.dart';
 
 /// Opens URLs in the operating system's registered handler.
 ///
@@ -32,9 +33,24 @@ class UrlLauncher {
   ///
   /// {@macro ffi_url_launcher.launch_contract}
   ///
-  /// Throws `UrlLaunchException` for a genuine failure, and [UnsupportedError]
-  /// on a platform with no backend.
-  bool launchUrlSync(Uri url) => _backend.launch(url);
+  /// {@template ffi_url_launcher.allow_unsafe}
+  /// Refuses a URL whose *shape* says it is a local path rather than a URL — no
+  /// scheme at all, or a one-letter scheme, which on Windows is a drive letter.
+  /// Both were measured to reach the shell and do something the caller did not
+  /// ask for. Set [allowUnsafe] to skip that check when the input has already
+  /// been decided elsewhere.
+  ///
+  /// The check is a **shape** check, never a trust check, and it is partial by
+  /// design: `file:///C:/Windows/System32/calc.exe` passes it and will execute.
+  /// See the README for what is and is not blocked.
+  /// {@endtemplate}
+  ///
+  /// Throws `UnsafeUrlError` for a refused shape, `UrlLaunchException` for a
+  /// genuine failure, and [UnsupportedError] on a platform with no backend.
+  bool launchUrlSync(Uri url, {bool allowUnsafe = false}) {
+    if (!allowUnsafe) checkUrlShape(url);
+    return _backend.launch(url);
+  }
 
   /// Opens [url] in its registered handler.
   ///
@@ -42,10 +58,13 @@ class UrlLauncher {
   /// default — it matches `package:url_launcher`, so code moving across does
   /// not change shape.
   ///
+  /// {@macro ffi_url_launcher.allow_unsafe}
+  ///
   /// **No work is offloaded.** The underlying call is synchronous and must stay
   /// on the calling isolate's thread: `NSWorkspace` wants the main thread and
   /// `ShellExecuteW` depends on that thread's COM apartment. The `Future` is
   /// here so the signature can survive a future implementation that genuinely
   /// is asynchronous, not because this one is.
-  Future<bool> launchUrl(Uri url) async => _backend.launch(url);
+  Future<bool> launchUrl(Uri url, {bool allowUnsafe = false}) async =>
+      launchUrlSync(url, allowUnsafe: allowUnsafe);
 }

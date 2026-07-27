@@ -105,6 +105,64 @@ void main() {
     });
   });
 
+  group('the shape check is wired into the facade', () {
+    // url_safety_test.dart proves the check decides correctly. This proves the
+    // public API actually calls it — a correct check nobody invokes protects
+    // nothing, and that gap would pass both suites separately.
+    test('refuses a drive path before the backend is reached', () {
+      final backend = _RecordingBackend();
+
+      expect(
+        () => UrlLauncher.withBackend(
+          backend,
+        ).launchUrlSync(Uri.parse(r'C:\Windows\System32\calc.exe')),
+        throwsA(isA<UnsafeUrlError>()),
+      );
+      // The point of the check: the string never reaches the OS.
+      expect(backend.launched, isEmpty);
+    });
+
+    test('refuses an empty URL before the backend is reached', () {
+      final backend = _RecordingBackend();
+
+      expect(
+        () => UrlLauncher.withBackend(backend).launchUrlSync(Uri.parse('')),
+        throwsA(isA<UnsafeUrlError>()),
+      );
+      expect(backend.launched, isEmpty);
+    });
+
+    test('allowUnsafe hands the same URL straight through', () {
+      final backend = _RecordingBackend();
+      final url = Uri.parse(r'C:\Windows\System32\calc.exe');
+
+      expect(
+        UrlLauncher.withBackend(backend).launchUrlSync(url, allowUnsafe: true),
+        isTrue,
+      );
+      expect(backend.launched, [url]);
+    });
+
+    test('guards the asynchronous form as well', () {
+      final backend = _RecordingBackend();
+
+      expect(
+        UrlLauncher.withBackend(backend).launchUrl(Uri.parse('')),
+        throwsA(isA<UnsafeUrlError>()),
+      );
+      expect(backend.launched, isEmpty);
+    });
+
+    test('lets an ordinary URL through untouched', () {
+      final backend = _RecordingBackend();
+      final url = Uri.parse('https://example.com/a?b=1');
+
+      UrlLauncher.withBackend(backend).launchUrlSync(url);
+
+      expect(backend.launched, [url]);
+    });
+  });
+
   group('UrlLauncher.forOperatingSystem', () {
     test('refuses a platform with no backend, naming it', () {
       final launcher = UrlLauncher.forOperatingSystem('linux');

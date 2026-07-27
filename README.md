@@ -8,8 +8,8 @@ hooks** — so a consumer can still `dart compile exe` into a single executable.
 
 > **Status: early. Windows only so far.** macOS is designed but not yet wired;
 > calling this on any platform without a backend raises `UnsupportedError` that
-> names the platform. `canLaunchUrl` and URL validation are not implemented yet
-> — read the caveats below before relying on the return value.
+> names the platform. `canLaunchUrl` is not implemented yet — read the caveat on
+> the return value below before relying on it.
 
 ## Usage
 
@@ -42,7 +42,8 @@ UrlLauncher.forOperatingSystem('linux').launchUrlSync(url);  // throws, naming l
 |---|---|
 | `true` | the handler was **started** |
 | `false` | the operating system reported that nothing is registered to open this |
-| throws `UrlLaunchException` | the operating system refused for some other reason; `platformCode` carries its code on Windows |
+| throws `UnsafeUrlError` | the URL's shape says it is a local path — see [Security](#security) |
+| throws `UrlLaunchException` | the operating system refused for some other reason; `platformCode` carries its code on Windows, and `target` names the string it was actually given |
 | throws `UnsupportedError` | this platform has no backend |
 
 **`true` does not mean the URL opened.** Neither Windows nor macOS reports that,
@@ -61,24 +62,45 @@ not as "it worked".
 
 ## Security
 
-This version performs **no URL validation**. A string that `Uri` parses is
-handed to the shell as-is, and on Windows a drive-letter path parses as a URI:
+A URL whose **shape** says it is a local path is refused before the operating
+system sees it. The check is on by default and throws `UnsafeUrlError`.
+
+| Input | Result |
+|---|---|
+| `C:\Windows\System32\calc.exe` | **refused** — parses with the one-letter scheme `c`, a drive letter |
+| `\\attacker\share\evil.exe` | **refused** — no scheme |
+| `evil.bat`, `some/path` | **refused** — no scheme |
+| `''` (empty or blank) | **refused** — no scheme |
+| `file:`, `file://`, `file:///` | **refused** — names no file; converts to the current drive's root |
+| `file:///C:/a.txt?q=1`, `…#frag` | **refused** — a query or fragment means it is not a file path |
+| `https://…`, `mailto:…`, `myapp://…` | allowed |
+| `file:///C:/x.txt`, `file://server/share/x` | allowed |
+| `file:///C:/Windows/System32/calc.exe` | **allowed — and it will execute** |
+
+**Read that last row.** `file:` is a supported desktop feature, so this check
+does not block it. It blocks two specific shapes; it is not a judgement about
+whether a URL is safe to open, and describing it as "validated" would move your
+belief without moving your risk. If your URLs come from a network response, a
+config file, or standard input, you still need your own policy on top — a scheme
+whitelist is yours to decide, deliberately not this package's.
+
+Why these two shapes and not a whitelist: `Uri` typing alone does not protect
+you. Measured on Windows 11 —
 
 ```dart
-Uri.parse(r'C:\Windows\System32\calc.exe').scheme;      // 'c'
-Uri.parse(r'C:\Windows\System32\calc.exe').hasScheme;   // true
+Uri.parse(r'C:\Windows\System32\calc.exe').scheme;      // 'c'   — not what you expect
+Uri.parse(r'C:\Windows\System32\calc.exe').hasScheme;   // true  — a `hasScheme` guard passes it
 ```
 
-`ShellExecuteW` accepts the forward-slashed form of that and **executes it**.
+`ShellExecuteW` accepts the forward-slashed form and **executes it**. An empty
+URL is not inert either: `ShellExecuteW('')` answers *success* and opens a File
+Explorer window. Both are now refused.
 
-An **empty** URL is not inert either. Measured on Windows 11:
-`launchUrlSync(Uri.parse(''))` opens a File Explorer window and returns `true`.
-An unsubstituted template value or a blank config entry reaching this function
-reproduces it.
+To opt out for an input you have already decided is fine:
 
-Until the shape check lands, do not pass URLs from an untrusted or
-unvalidated source — a network response, a config file, standard input —
-without checking them yourself.
+```dart
+await launchUrl(uri, allowUnsafe: true);
+```
 
 ## Platform support
 

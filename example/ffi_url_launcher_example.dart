@@ -13,20 +13,10 @@ Future<void> main(List<String> arguments) async {
     arguments.isEmpty ? 'https://dart.dev' : arguments.first,
   );
 
-  // The package does not check this yet (that is ticket 02), and the README
-  // tells callers not to pass an unvalidated argument through until it does.
-  // An example that took `arguments.first` on trust would be demonstrating the
-  // practice the package documents against: `dart run example/… ""` opens a
-  // File Explorer window and reports success, measured in lessons.md #4.
-  if (!target.hasScheme || target.scheme.length == 1) {
-    stderr.writeln(
-      'Refusing "${arguments.first}": that is a local path, not a URL. '
-      'Pass something like https://dart.dev.',
-    );
-    exitCode = 2;
-    return;
-  }
-
+  // The argument is passed through untouched on purpose. The package refuses a
+  // local path itself now, so an example that pre-filtered would be hiding the
+  // behaviour it exists to demonstrate — try it with "" or C:\Windows\… and the
+  // UnsafeUrlError branch below is what you get.
   try {
     if (await launchUrl(target)) {
       print('Handed $target to its registered handler.');
@@ -34,8 +24,13 @@ Future<void> main(List<String> arguments) async {
       // Not a failure: the system simply has nothing registered for this URL.
       print('Nothing on this machine is registered to open $target.');
     }
+  } on UnsafeUrlError catch (error) {
+    stderr.writeln('Refused: $error');
+    exitCode = 2;
   } on UrlLaunchException catch (error) {
-    print('Could not open $target: ${error.message}');
+    // `target` is the string the OS was handed — for a file: URL that is the
+    // decoded path, which is the form a reader recognises.
+    print('Could not open ${error.target}: ${error.message}');
     if (error.platformCode case final code?) print('Platform code: $code.');
   } on UnsupportedError catch (error) {
     print(error.message);

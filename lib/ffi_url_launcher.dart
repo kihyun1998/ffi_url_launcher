@@ -13,7 +13,12 @@ library;
 
 import 'src/url_launcher.dart';
 
-export 'src/exceptions.dart' show UrlLaunchException, UrlLauncherException;
+export 'src/exceptions.dart'
+    show
+        UnsafeUrlError,
+        UnsafeUrlReason,
+        UrlLaunchException,
+        UrlLauncherException;
 export 'src/url_launcher.dart' show UrlLauncher;
 
 /// The launcher used by the top-level functions.
@@ -27,13 +32,19 @@ final UrlLauncher _default = UrlLauncher.forCurrentPlatform();
 ///
 /// {@macro ffi_url_launcher.launch_contract}
 ///
-/// Throws [UrlLaunchException] for a genuine failure, and [UnsupportedError] on
-/// a platform with no backend.
-Future<bool> launchUrl(Uri url) => _default.launchUrl(url);
+/// {@macro ffi_url_launcher.allow_unsafe}
+///
+/// Throws [UnsafeUrlError] for a refused shape, [UrlLaunchException] for a
+/// genuine failure, and [UnsupportedError] on a platform with no backend.
+Future<bool> launchUrl(Uri url, {bool allowUnsafe = false}) =>
+    _default.launchUrl(url, allowUnsafe: allowUnsafe);
 
 /// Opens [url] in its registered handler, synchronously.
 ///
 /// Identical to [launchUrl] in every respect but the return type — that call is
 /// synchronous underneath as well. Reach for this one from a command-line tool
 /// that has no reason to be `async`.
-bool launchUrlSync(Uri url) => _default.launchUrlSync(url);
+///
+/// {@macro ffi_url_launcher.allow_unsafe}
+bool launchUrlSync(Uri url, {bool allowUnsafe = false}) =>
+    _default.launchUrlSync(url, allowUnsafe: allowUnsafe);

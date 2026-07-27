@@ -173,7 +173,18 @@ finds another.
   the package *manufactures* the encoding that breaks `file:`.
 - **`Uri.toFilePath` throws for a query or fragment**, and for any scheme but
   `file`. Measured: `file:///C:/a.txt?q=1` and `#frag` both raise
-  `UnsupportedError` naming the offending component.
+  `UnsupportedError` naming the offending component. **That error type is
+  already spoken for** — the public API documents `UnsupportedError` as "this
+  platform has no backend" — so the shape check refuses those URLs before the
+  conversion can raise it. A leaked `UnsupportedError` would read as an
+  unsupported operating system.
+- **Having a scheme is not the same as denoting a target.** `file:`, `file://`,
+  `file:/` and `file:///` all normalise to `file:///` and convert to a bare `\`
+  — an *existing* directory, the root of the current drive
+  (`Directory(r'\').existsSync()` is `true`, resolving to `D:\` here). Opening
+  it launches a file browser, which is the empty-string hazard arriving with a
+  scheme attached. Any rule written as "does it have a scheme" misses this whole
+  class.
 - **KnownDLLs decides whether a bare DLL name is safe**, and the family rule is
   to not depend on knowing which. `shell32`, `advapi32`, `ole32` are on the
   list; `dwrite` is not, and a hostile `dwrite.dll` beside the executable *was*

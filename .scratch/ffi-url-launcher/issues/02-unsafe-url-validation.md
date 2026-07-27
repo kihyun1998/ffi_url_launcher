@@ -33,12 +33,12 @@ RFC 3986상 1글자 스킴은 합법이지만 실제로 등록·사용되는 것
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done — gates green, both refusals proved against the real shell
 
-- [ ] 스킴이 없는 URL(`evil.bat`, UNC 경로)을 넘기면 `UnsafeUrlError`가 던져진다
-- [ ] 스킴 길이가 1인 URL(`C:\...`)을 넘기면 `UnsafeUrlError`가 던져진다
-- [ ] `allowUnsafe: true`를 주면 위 두 경우 모두 검증을 건너뛰고 네이티브 호출까지 도달한다
-- [ ] `file:`, `ms-settings:`, `mailto:`, 커스텀 스킴(`myapp://`)은 기본값에서 통과한다
-- [ ] `UnsafeUrlError`는 `UrlLaunchException`과 구분되는 타입이라, 호출자가 "차단됨"과 "시스템 오류"를 catch로 구별할 수 있다
-- [ ] 동일한 검증이 `launchUrl` 계열과 `canLaunchUrl` 계열에 모두 적용된다
-- [ ] 검증은 플랫폼 무관 순수 로직이므로 이 테스트들이 어느 OS에서도 통과한다
+- [x] 스킴이 없는 URL(`evil.bat`, UNC 경로)을 넘기면 `UnsafeUrlError`가 던져진다
+- [x] 스킴 길이가 1인 URL(`C:\...`)을 넘기면 `UnsafeUrlError`가 던져진다
+- [x] `allowUnsafe: true`를 주면 위 두 경우 모두 검증을 건너뛰고 네이티브 호출까지 도달한다
+- [x] `file:`, `ms-settings:`, `mailto:`, 커스텀 스킴(`myapp://`)은 기본값에서 통과한다
+- [x] `UnsafeUrlError`는 `UrlLaunchException`과 구분되는 타입이라, 호출자가 "차단됨"과 "시스템 오류"를 catch로 구별할 수 있다
+- [x] 동일한 검증이 `launchUrl` 계열과 `canLaunchUrl` 계열에 모두 적용된다
+- [x] 검증은 플랫폼 무관 순수 로직이므로 이 테스트들이 어느 OS에서도 통과한다
