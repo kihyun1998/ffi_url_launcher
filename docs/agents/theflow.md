@@ -79,11 +79,15 @@ spot does not exist here. The real blind spot is per-runner (Step 7).
 | `lib/src/url_launcher_backend.dart` | `UrlLauncherBackend` — the seam, and nothing else. Operations are identical across platforms; the differences live in *how* the OS is asked, never in *what operations exist*. Also holds the `{@template}` for the launch contract, so the sentence most likely to go stale exists once |
 | `lib/src/supported_platforms.dart` | `supportedPlatforms` — the one table naming a platform, formatting its name, and building its backend. Three separate declarations before, which is one disagreement away from the sibling package's self-contradicting refusal message; a platform cannot now be listed without being wired |
 | `lib/src/url_launcher_platform.dart` | OS name → backend, **as a pure function of the string**, so every arm is testable off-host. A lookup in `supportedPlatforms`, not a `switch` |
-| `lib/src/url_safety.dart` | the shape check — a pure function over `Uri`, no platform calls, so it is testable on any runner |
+| `lib/src/url_safety.dart` | **planned (ticket 02)** — the shape check: a pure function over `Uri`, no platform calls, so it is testable on any runner |
 | `lib/src/exceptions.dart` | sealed exception hierarchy. Sealed on purpose: adding a failure mode makes the analyzer point at every exhaustive switch |
 | `lib/src/backends/unsupported_backend.dart` | throws from both operations rather than returning a quiet `false` |
 | `lib/src/backends/windows/` | hand-written `shell32` / `advapi32` bindings, the return-code decoding, and the `Run`-style scheme lookup. The marshalling **is** the dangerous part — no interface over it and no fake of it |
-| `lib/src/backends/macos/` | hand-written `libobjc` / AppKit bindings, the `objc_msgSend` declarations and the autorelease-pool discipline |
+| `lib/src/backends/macos/` | **planned (ticket 04)** — hand-written `libobjc` / AppKit bindings, the `objc_msgSend` declarations and the autorelease-pool discipline |
+
+Rows marked **planned** do not exist yet. The table is a map of where things go,
+not an inventory of what is there; without the marker it reads as the latter and
+an agent goes looking for a file that was never written.
 | `example/` | the **only in-repo consumer seam** — reaches the package through the public API only. No separate `pubspec.yaml`, so `dart analyze` covers it but `dart test` does **not** run it (see Step 7) |
 
 **Naming note.** The design record in `.scratch/` sketched the seam as

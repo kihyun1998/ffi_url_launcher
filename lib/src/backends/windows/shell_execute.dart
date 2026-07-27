@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
@@ -97,11 +98,24 @@ const int _swShowNormal = 1; // winuser.h:394  SW_SHOWNORMAL
 /// The `lpOperation` verb. The reference implementation uses the same one.
 const String _verbOpen = 'open';
 
+/// Opens a system DLL by absolute path.
+///
+/// Bare-name loading follows the search order, which begins with the directory
+/// the executable was started from — so a DLL dropped next to a consumer's
+/// program would be loaded in place of the system one. Siblings
+/// `just_font_scan` and `just_autostart` state this as the in-family rule and
+/// apply it even to DLLs the `KnownDLLs` registry list already protects,
+/// precisely so that nobody has to know which ones those are.
+DynamicLibrary _loadSystem32(String name) {
+  final root = Platform.environment['SystemRoot'] ?? r'C:\Windows';
+  return DynamicLibrary.open('$root\\System32\\$name');
+}
+
 // Lazily initialised, as every top-level `final` in Dart is. That is what lets
 // this file be part of the package on macOS and Linux — the platform dispatch
 // never touches these bindings off Windows, so `shell32.dll` is never opened
 // there.
-final DynamicLibrary _shell32 = DynamicLibrary.open('shell32.dll');
+final DynamicLibrary _shell32 = _loadSystem32('shell32.dll');
 
 // HINSTANCE ShellExecuteW(HWND hwnd, LPCWSTR lpOperation, LPCWSTR lpFile,
 //                         LPCWSTR lpParameters, LPCWSTR lpDirectory,

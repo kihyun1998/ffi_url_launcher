@@ -33,10 +33,24 @@ void main() {
       expect(shellExecuteOpen(missingPath), 2);
     });
 
-    test('marshals non-ASCII targets without corrupting them', () {
-      // A UTF-16 conversion that truncated or mis-encoded would change which
-      // error the shell reports, or crash. Getting "file not found" back for a
-      // path that genuinely does not exist is the assertion.
+    test('survives a non-ASCII target without crashing', () {
+      // Deliberately weak, and labelled so.
+      //
+      // An earlier version of this test claimed the assertion proved the UTF-16
+      // marshalling was correct, on the reasoning that a mangled conversion
+      // "would change which error the shell reports". That was measured and is
+      // false: correct UTF-16, UTF-8 bytes cast to Utf16, and low-byte
+      // truncation all return 2 for a path that does not exist. The assertion
+      // could not fail for the reason it named — theflow Step 4's tautological
+      // proof, in the file that exists to avoid it.
+      //
+      // What it still buys is crash detection: a marshalling bug that walked
+      // off the end of the buffer would not return cleanly at all.
+      //
+      // A discriminating form needs an existing non-ASCII path, which under the
+      // "open" verb means a window. It becomes available for free once the
+      // `file:` percent-decoding gap is closed, because then an existing
+      // non-ASCII `file:` URL must stop answering 2.
       expect(shellExecuteOpen(r'C:\zzz-없는경로-ффи\nope.zzzq'), 2);
     });
   });
