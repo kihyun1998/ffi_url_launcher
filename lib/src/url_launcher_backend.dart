@@ -13,10 +13,22 @@ abstract interface class UrlLauncherBackend {
   /// Throws for every other failure.
   ///
   /// **`true` means the handler was started, not that the URL opened.** No
-  /// operating system reports the latter, and on Windows it means less than it
-  /// looks: an unregistered scheme is answered with *success* because what the
-  /// shell started was its own app-picker dialog. See `docs/agents/lessons.md`
-  /// #4 for the measurement.
+  /// operating system reports the latter.
+  ///
+  /// **On Windows, `false` is effectively unreachable for a URL scheme — do not
+  /// branch on it there.** `ShellExecuteW` answers *success* (42, measured) for
+  /// a scheme nothing is registered to handle: it reports that the shell
+  /// accepted the request, not what became of it. The documented
+  /// `SE_ERR_NOASSOC` code that would produce `false` is not returned for
+  /// schemes on modern Windows; it is still reachable through a file extension
+  /// with no association. `docs/agents/lessons.md` #4.
+  ///
+  /// This is not worked around by checking first. The reference implementation
+  /// does not either — `LaunchUrl` and `CanLaunchUrl` are independent there, and
+  /// a pre-check would block schemes the shell handles without a registry entry
+  /// (`shell:` has no key, measured). **Call [canOpen] yourself when the answer
+  /// matters**; that is the question it exists to answer, and it is the only
+  /// reliable one on Windows.
   /// {@endtemplate}
   bool launch(Uri url);
 

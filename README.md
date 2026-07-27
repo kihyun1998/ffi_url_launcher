@@ -16,11 +16,17 @@ hooks** — so a consumer can still `dart compile exe` into a single executable.
 import 'package:ffi_url_launcher/ffi_url_launcher.dart';
 
 Future<void> main() async {
-  if (!await launchUrl(Uri.parse('https://dart.dev'))) {
-    print('nothing is registered to open that');
+  final url = Uri.parse('https://dart.dev');
+  if (await canLaunchUrl(url)) {
+    await launchUrl(url);
+  } else {
+    print('nothing on this machine is registered to open that');
   }
 }
 ```
+
+Ask with `canLaunchUrl` rather than branching on what `launchUrl` returns — see
+[What the return value means](#what-the-return-value-means) for why.
 
 From a command-line tool with no reason to be `async`:
 
@@ -40,7 +46,7 @@ UrlLauncher.forOperatingSystem('linux').launchUrlSync(url);  // throws, naming l
 | Result | Meaning |
 |---|---|
 | `true` | the handler was **started** |
-| `false` | the operating system reported that nothing is registered to open this |
+| `false` | the operating system reported that nothing is registered to open this — **on Windows this is effectively unreachable for a URL scheme; do not branch on it there.** Use `canLaunchUrl` instead |
 | throws `UnsafeUrlError` | the URL's shape says it is a local path — see [Security](#security) |
 | throws `UrlLaunchException` | the operating system refused for some other reason; `platformCode` carries its code on Windows, and `target` names the string it was actually given |
 | throws `UnsupportedError` | this platform has no backend |

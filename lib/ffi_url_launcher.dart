@@ -5,10 +5,17 @@
 /// hooks — so a consumer can still `dart compile exe`.
 ///
 /// ```dart
-/// if (!await launchUrl(Uri.parse('https://dart.dev'))) {
-///   print('nothing is registered to open that');
+/// final url = Uri.parse('https://dart.dev');
+/// if (await canLaunchUrl(url)) {
+///   await launchUrl(url);
+/// } else {
+///   print('nothing on this machine is registered to open that');
 /// }
 /// ```
+///
+/// Ask with [canLaunchUrl] rather than branching on what [launchUrl] returns:
+/// on Windows its `false` is effectively unreachable for a URL scheme, because
+/// the shell reports that it accepted the request and not what became of it.
 library;
 
 import 'src/url_launcher.dart';

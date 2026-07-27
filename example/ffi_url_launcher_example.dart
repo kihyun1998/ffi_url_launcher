@@ -18,12 +18,17 @@ Future<void> main(List<String> arguments) async {
   // behaviour it exists to demonstrate — try it with "" or C:\Windows\… and the
   // UnsafeUrlError branch below is what you get.
   try {
-    if (await launchUrl(target)) {
-      print('Handed $target to its registered handler.');
-    } else {
-      // Not a failure: the system simply has nothing registered for this URL.
+    // Ask first. Branching on what `launchUrl` returns would be demonstrating a
+    // pattern the package documents against: on Windows its `false` is
+    // effectively unreachable for a URL scheme, because the shell reports that
+    // it accepted the request and not what became of it.
+    if (!await canLaunchUrl(target)) {
       print('Nothing on this machine is registered to open $target.');
+      return;
     }
+
+    await launchUrl(target);
+    print('Handed $target to its registered handler.');
   } on UnsafeUrlError catch (error) {
     stderr.writeln('Refused: $error');
     exitCode = 2;
