@@ -71,10 +71,10 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
 - **Recurring hazard — every cheap "yes" answers a narrower question than the
   caller asked.** `hasScheme` true means the string has a colon, not that it is a
   URL. `canLaunchUrl` true means the *scheme* is registered, not that the launch
-  will succeed. `ShellExecuteW > 32` means a process started, not that the URL
-  opened — **measured: an unregistered scheme returns 42, i.e. success, because
-  the shell launched its own look-for-an-app dialog** (`lessons.md` #4). Every
-  guard states which question it answers, in its own dartdoc.
+  will succeed. `ShellExecuteW > 32` means **the shell accepted the request**, not
+  that the URL opened — **measured: an unregistered scheme returns 42, i.e.
+  success**, and what became of it is not reported (`lessons.md` #4). Every guard
+  states which question it answers, in its own dartdoc.
 
 ## Agent skills
 

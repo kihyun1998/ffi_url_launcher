@@ -135,14 +135,17 @@ finds another.
 - **`ShellExecuteW` returns once the shell has started a process**, not once the
   target has loaded. It cannot report whether the page opened.
 - **An unregistered *scheme* answers 42 — success — not `SE_ERR_NOASSOC`.**
-  Measured on Windows 11 (26200), with the window watched on screen:
-  `zzznotreal://x` returns 42 and raises the *"you'll need a new app to open
-  this link"* picker; the **empty string** returns 42 and opens **File
-  Explorer**. What the shell "successfully launched" is something of its own, so
-  `SE_ERR_NOASSOC` is **not reachable through a URL scheme** on modern Windows
-  and `launch()` returning `true` does not mean anything the user wanted opened.
-  The registry check (`canLaunchUrl`) is the only reliable answer, which is why
-  it is a separate operation rather than a convenience. See
+  Measured on Windows 11 (26200). `SE_ERR_NOASSOC` is **not reachable through a
+  URL scheme** on modern Windows, so `launch()` returning `true` does not mean
+  anything the user wanted opened, and the registry check (`canLaunchUrl`) is
+  the only reliable answer — which is why it is a separate operation rather than
+  a convenience.
+- **What 42 means is "the request was accepted", not "the shell opened its own
+  picker".** That second sentence was written here once and does not survive
+  re-running: the identical string answered 42 with a dialog under `dart run`
+  (twice) and 42 with no dialog under `dart test` (once). The empty string did
+  open File Explorer. **Do not explain 42 by a window** — the window is not
+  reliably there and the trigger is unidentified. See
   [`lessons.md`](lessons.md) #4.
 - **Anything handed to `ShellExecuteW` can open a window, including inputs that
   look inert.** The empty string is the proof. Never call the launch path in CI

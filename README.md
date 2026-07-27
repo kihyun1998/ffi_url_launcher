@@ -49,11 +49,12 @@ UrlLauncher.forOperatingSystem('linux').launchUrlSync(url);  // throws, naming l
 and on Windows it means less than it looks:
 
 > Measured on Windows 11: `ShellExecuteW` answers **success** for a scheme
-> nothing is registered to handle, because what it successfully launched is its
-> own "how do you want to open this?" dialog. The documented `SE_ERR_NOASSOC`
-> code is not reachable through a URL scheme, so `false` is effectively
-> unreachable on Windows for schemes and a `true` can mean the user was shown an
-> app picker instead of their content.
+> nothing is registered to handle. It reports that the request was accepted, not
+> what became of it — sometimes a "how do you want to open this?" picker, and in
+> at least one measured run nothing visible at all. The documented
+> `SE_ERR_NOASSOC` code is not reachable through a URL scheme, so `false` is
+> effectively unreachable on Windows for schemes and a `true` can mean the user
+> saw a picker, or nothing, instead of their content.
 
 **Ask first** — that is what `canLaunchUrl` is for. It reads the system's
 registry of handlers rather than asking the shell to try, so it can answer the

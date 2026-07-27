@@ -154,9 +154,30 @@ re-run on its own so the window could be attributed to one input:
 | `zzznotreal-ffiurllauncher://x` | 42 | the **"이 링크를 열려면 새 앱이 필요합니다"** dialog (Windows' "you'll need a new app to open this link" handler picker) |
 | `''` (empty string) | 42 | a **File Explorer window** |
 
-So "success" means *the shell successfully launched something of its own* — a
-picker dialog, or Explorer. Neither is what the caller asked for, and both are
-reported identically to a real launch.
+**But the window is not what 42 means — corrected after re-running.** The first
+version of this entry explained 42 as *"the shell successfully launched its own
+picker"*. Three runs of the identical string say otherwise:
+
+| Run | How | Status | Dialog |
+|---|---|---|---|
+| 1 | `dart test`, skips removed | 42 | **no** |
+| 2 | `dart run` probe (with a second, never-used scheme) | 42 | yes |
+| 3 | `dart run` probe, that string alone | 42 | yes |
+
+Same input, same machine, same return value, different screen. So 42 does not
+mean a picker was launched; it means **the shell accepted the request and does
+not report what it did with it**. That is the durable fact, and it is the one
+the design rests on.
+
+Run 3 also falsifies the obvious explanation for run 1 — "Windows only asks once
+per scheme" — because the scheme that had already produced a dialog produced
+another. What is left is that the two `dart run` invocations showed it and the
+one `dart test` invocation did not, which is **n=1 on the only difference** and
+is not enough to build on.
+
+The conclusion is unchanged: an unregistered scheme answers success, so
+`launch()` cannot answer "can this be opened" and reading the registry
+(`canLaunchUrl`, #3) is the only reliable check.
 
 The empty-string row is the worse of the two. A dialog at least tells the user
 something went wrong; Explorer opening looks like an unrelated accident while

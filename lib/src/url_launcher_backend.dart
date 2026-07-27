@@ -25,8 +25,9 @@ abstract interface class UrlLauncherBackend {
   /// {@template ffi_url_launcher.can_open_contract}
   /// Asks the operating system's own registry of handlers rather than asking
   /// the shell to try — which on Windows cannot answer the question at all,
-  /// since an unregistered scheme is answered with *success* after the shell
-  /// opens its own app picker (`docs/agents/lessons.md` #4).
+  /// since an unregistered scheme is answered with *success*: the shell reports
+  /// that it accepted the request and not what became of it
+  /// (`docs/agents/lessons.md` #4).
   ///
   /// A `true` says a handler is **registered**, not that opening will succeed:
   /// the registered application may be missing, broken, or unable to handle

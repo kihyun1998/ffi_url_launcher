@@ -72,23 +72,26 @@ void main() {
   });
 
   group('inputs that report success while opening something else', () {
-    // Recorded, not asserted as desirable. Measured on Windows 11 (26200) with
-    // the window watched on screen, each call run on its own so the window
-    // could be attributed:
+    // Recorded, not asserted as desirable. Measured on Windows 11 (26200):
     //
-    //   'zzznotreal-ffiurllauncher://x' -> 42, raises the "you'll need a new
-    //                                      app to open this link" picker
-    //   ''                              -> 42, opens File Explorer
+    //   'zzznotreal-ffiurllauncher://x' -> 42
+    //   ''                              -> 42, opened File Explorer
     //
-    // 42 is greater than 32, so both are "success". What the shell successfully
-    // launched is something of its own. SE_ERR_NOASSOC is not reachable through
-    // a URL scheme at all here, so `launch()` returning `true` does not mean
-    // anything the caller wanted opened it — `canLaunchUrl`, which reads the
-    // registry instead of asking the shell, is the only reliable answer.
+    // 42 is greater than 32, so both are "success". SE_ERR_NOASSOC is not
+    // reachable through a URL scheme here, so `launch()` returning `true` does
+    // not mean anything the caller wanted opened it — `canLaunchUrl`, which
+    // reads the registry instead of asking the shell, is the only reliable
+    // answer.
     //
-    // Both are skipped: confirming either costs a window on the developer's
-    // desktop, which is also why neither may ever run in CI. Unskip
-    // deliberately when re-measuring on a new Windows build.
+    // **The window is not a reliable side effect, which is why these stay
+    // skipped.** The scheme above produced the "you'll need a new app" picker
+    // under `dart run` twice and produced none under `dart test` once — same
+    // string, same machine, same 42. Whether the harness is the difference is
+    // n=1 and not something to act on. Skipping costs one assertion outside CI;
+    // guessing wrong costs a CI run parked on a dialog nobody can dismiss.
+    //
+    // Unskip deliberately when re-measuring on a new Windows build, and expect
+    // a window.
     test(
       'an unregistered scheme reports success and raises the app picker',
       () => expect(shellExecuteOpen('zzznotreal-ffiurllauncher://x'), 42),
