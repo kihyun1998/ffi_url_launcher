@@ -1,5 +1,5 @@
 import 'backends/unsupported_backend.dart';
-import 'backends/windows/windows_backend.dart';
+import 'supported_platforms.dart';
 import 'url_launcher_backend.dart';
 
 /// Chooses the backend for [operatingSystem].
@@ -9,20 +9,9 @@ import 'url_launcher_backend.dart';
 /// — be asserted from any machine; a resolver that read the ambient platform
 /// could only ever have one of its branches tested.
 ///
-/// The set it switches on is [supportedOperatingSystems], shared with the
-/// refusal message so the two cannot drift apart.
-UrlLauncherBackend resolveUrlLauncherBackend(String operatingSystem) {
-  if (!supportedOperatingSystems.contains(operatingSystem)) {
-    return UnsupportedUrlLauncherBackend(operatingSystem);
-  }
-
-  return switch (operatingSystem) {
-    'windows' => const WindowsUrlLauncherBackend(),
-    // Unreachable while `supportedOperatingSystems` and this switch agree. The
-    // guard above is what makes the message correct; this arm is what makes a
-    // half-finished addition loud instead of silent.
-    _ => throw StateError(
-      '"$operatingSystem" is listed as supported but has no backend wired',
-    ),
-  };
-}
+/// The lookup is [supportedPlatforms], the same table the refusal message reads
+/// its list from, so "listed as supported but not wired" is not a state this
+/// can be in.
+UrlLauncherBackend resolveUrlLauncherBackend(String operatingSystem) =>
+    supportedPlatforms[operatingSystem]?.create() ??
+    UnsupportedUrlLauncherBackend(operatingSystem);

@@ -14,9 +14,9 @@ sealed class UrlLauncherException implements Exception {
 /// The operating system refused to open a URL for a reason that is not
 /// "nothing is registered to handle it".
 ///
-/// That ordinary case is reported as `false`, never as this exception — see
-/// [UrlLauncherBackend.launch]. What reaches here is a genuine fault: access
-/// denied, a path that does not exist, an out-of-memory shell.
+/// That ordinary case is reported as `false`, never as this exception. What
+/// reaches here is a genuine fault: access denied, a path that does not exist,
+/// an out-of-memory shell.
 final class UrlLaunchException extends UrlLauncherException {
   /// Creates a launch failure for [url].
   const UrlLaunchException({

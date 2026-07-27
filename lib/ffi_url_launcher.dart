@@ -25,12 +25,10 @@ final UrlLauncher _default = UrlLauncher.forCurrentPlatform();
 
 /// Opens [url] in its registered handler.
 ///
-/// Returns `true` when the handler was started and `false` when nothing is
-/// registered to open this URL. Throws [UrlLaunchException] for any other
-/// failure, and [UnsupportedError] on a platform with no backend.
+/// {@macro ffi_url_launcher.launch_contract}
 ///
-/// **`true` means the handler was started, not that the URL opened.** Neither
-/// Windows nor macOS reports the latter.
+/// Throws [UrlLaunchException] for a genuine failure, and [UnsupportedError] on
+/// a platform with no backend.
 Future<bool> launchUrl(Uri url) => _default.launchUrl(url);
 
 /// Opens [url] in its registered handler, synchronously.

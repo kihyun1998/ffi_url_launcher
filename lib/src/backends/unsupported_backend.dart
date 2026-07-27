@@ -1,3 +1,4 @@
+import '../supported_platforms.dart';
 import '../url_launcher_backend.dart';
 
 /// Stands in on an operating system this package has no backend for.
@@ -18,21 +19,17 @@ final class UnsupportedUrlLauncherBackend implements UrlLauncherBackend {
 
   /// The refusal message.
   ///
-  /// The supported half is **derived** from [supportedOperatingSystems] rather
-  /// than written out, so it cannot come to disagree with what the resolver
-  /// actually wires. Sibling `just_autostart` shipped
-  /// *"has no backend for "windows". Supported platforms are Windows and
-  /// macOS."* — a sentence that contradicts itself — because those two halves
-  /// were maintained separately (its lessons #5).
+  /// The supported half is **read out of [supportedPlatforms]** rather than
+  /// written down, so it cannot come to disagree with what the resolver
+  /// actually wires. Sibling `just_autostart` shipped *"has no backend for
+  /// "windows". Supported platforms are Windows and macOS."* — a sentence that
+  /// contradicts itself — because those two halves were maintained separately
+  /// (its lessons #5).
   String get _message {
-    final supported = supportedOperatingSystems.map(_display).join(' and ');
+    final supported = supportedPlatforms.values
+        .map((platform) => platform.displayName)
+        .join(' and ');
     return 'ffi_url_launcher has no backend for "$operatingSystem". '
         'Supported: $supported.';
   }
 }
-
-String _display(String operatingSystem) => switch (operatingSystem) {
-  'windows' => 'Windows',
-  'macos' => 'macOS',
-  _ => operatingSystem,
-};

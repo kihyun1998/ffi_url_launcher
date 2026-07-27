@@ -19,8 +19,12 @@
 - [ ] 성공 시 `true`를 반환한다
 - [ ] `SE_ERR_NOASSOC`(31, 이 URL을 열 앱이 없음)이면 예외 없이 `false`를 반환한다
 - [ ] 그 외 32 이하 반환값이면 `UrlLaunchException`을 던진다. 예외는 `url`, `platformCode`(int?), `message`를 담는다
-- [ ] 네이티브 호출이 주입 가능한 추상 이음새 뒤에 있고, `@visibleForTesting` 생성자로만 교체 가능하며 공개 API 표면에는 노출되지 않는다
+- [ ] 네이티브 호출이 주입 가능한 추상 이음새 뒤에 있고, ~~`@visibleForTesting` 생성자로만 교체 가능하며~~ 공개 API 표면에는 노출되지 않는다
 - [ ] Fake 이음새를 주입한 단위 테스트가 에러 코드 매핑을 검증한다 (최소한 31 → `false`, 5 → throw, 33 → `true`)
+
+> **정정 — 이 criterion은 쓰인 대로는 만족 불가능하다.** `@visibleForTesting`은 `package:meta`를 실제 의존성으로 요구하는데, 이 티켓의 다른 criterion(*"런타임 의존성이 `ffi` 하나뿐"*)과 정면으로 충돌한다. 둘 다 만족시킬 방법은 없다.
+>
+> 의존성 불변식이 이긴다 — 그게 `dart compile exe`를 지키는 조건이고, 형제 레포 `just_autostart`도 같은 상황에서 문서화된 `Autostart.withBackend` 공개 생성자로 해결했다. 대신 **이음새가 받는 타입을 export하지 않는 것**이 노출을 막는다: `UrlLauncherBackend`는 `lib/ffi_url_launcher.dart`에 없으므로 외부 코드가 `src/`를 파고들지 않고는 인자 타입을 이름 붙일 수 없다. 근거는 `docs/agents/theflow.md`의 모듈 맵 아래 주석.
 - [ ] pubspec의 런타임 의존성이 `ffi` 하나뿐이고, `flutter` 의존이 없으며, 버전이 `0.1.0`이다
 - [ ] 스캐폴딩 잔재(`Awesome` 클래스, 기본 예제, 기본 테스트)가 제거된다
 - [ ] `dart analyze`가 경고 없이 통과한다

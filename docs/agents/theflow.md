@@ -76,8 +76,9 @@ spot does not exist here. The real blind spot is per-runner (Step 7).
 |---|---|
 | `lib/ffi_url_launcher.dart` | the public surface; the export list *is* the API contract |
 | `lib/src/url_launcher.dart` | the facade. Selects a backend once and delegates unchanged, so a backend's failures reach the caller as thrown |
-| `lib/src/url_launcher_backend.dart` | `UrlLauncherBackend` — the seam. Two operations, identical across platforms; the differences live in *how* the OS is asked, never in *what operations exist* |
-| `lib/src/url_launcher_platform.dart` | OS name → backend, **as a pure function of the string**, so every arm is testable off-host |
+| `lib/src/url_launcher_backend.dart` | `UrlLauncherBackend` — the seam, and nothing else. Operations are identical across platforms; the differences live in *how* the OS is asked, never in *what operations exist*. Also holds the `{@template}` for the launch contract, so the sentence most likely to go stale exists once |
+| `lib/src/supported_platforms.dart` | `supportedPlatforms` — the one table naming a platform, formatting its name, and building its backend. Three separate declarations before, which is one disagreement away from the sibling package's self-contradicting refusal message; a platform cannot now be listed without being wired |
+| `lib/src/url_launcher_platform.dart` | OS name → backend, **as a pure function of the string**, so every arm is testable off-host. A lookup in `supportedPlatforms`, not a `switch` |
 | `lib/src/url_safety.dart` | the shape check — a pure function over `Uri`, no platform calls, so it is testable on any runner |
 | `lib/src/exceptions.dart` | sealed exception hierarchy. Sealed on purpose: adding a failure mode makes the analyzer point at every exhaustive switch |
 | `lib/src/backends/unsupported_backend.dart` | throws from both operations rather than returning a quiet `false` |
@@ -90,6 +91,23 @@ spot does not exist here. The real blind spot is per-runner (Step 7).
 (`AutostartBackend`, `IdleSource`), so the seam is `UrlLauncherBackend` and its
 lookup method is `canOpen(Uri)` — deliberately *not* `schemeRegistered(String)`,
 which is Windows vocabulary that would misdescribe the macOS arm.
+
+**Injection seams are public named constructors and parameters, not
+`@visibleForTesting`.** That annotation lives in `package:meta`, and taking it
+would break the one-runtime-dependency invariant for an annotation the analyzer
+only advises on. Ticket 01 asked for both and the two cannot hold together; the
+dependency invariant wins, matching sibling `just_autostart`, which reaches the
+same shape with a documented `Autostart.withBackend`. What keeps the seam from
+becoming load-bearing public API is that **the types it accepts are not
+exported** — `UrlLauncherBackend` is not in `lib/ffi_url_launcher.dart`, so
+outside code cannot name the argument without reaching into `src/`.
+
+**Two seams, and they are not the same kind.** `UrlLauncher.withBackend`
+replaces a whole platform, and `WindowsUrlLauncherBackend(shellExecute:)`
+replaces one call so the status→result arms can be driven with codes a real
+machine will not produce on demand. Neither substitutes the **marshalling**,
+which is proved against the real DLL instead — a green test against a faked
+`ShellExecuteW` would say only that the fake behaves as written.
 
 ## Hidden-state list
 
