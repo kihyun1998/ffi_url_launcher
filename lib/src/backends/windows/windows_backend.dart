@@ -26,13 +26,18 @@ final class WindowsUrlLauncherBackend implements UrlLauncherBackend {
 
   @override
   bool launch(Uri url) {
-    final status = shellExecute(shellTargetFor(url));
+    final target = shellTargetFor(url);
+    final status = shellExecute(target);
 
     return switch (interpretShellExecuteStatus(status)) {
       ShellExecuteOutcome.launched => true,
       ShellExecuteOutcome.noHandler => false,
+      // The failure names `target`, not `url`. For a `file:` URL those differ,
+      // and the percent-encoded one is the form a user cannot recognise as
+      // their own file.
       ShellExecuteOutcome.failed => throw UrlLaunchException(
         url: url,
+        target: target,
         message: describeShellExecuteStatus(status),
         platformCode: status,
       ),

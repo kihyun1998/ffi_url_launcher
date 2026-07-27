@@ -53,7 +53,12 @@ void main() {
     test('lets a backend failure through instead of turning it into false', () {
       final url = Uri.parse('https://a.test');
       final backend = _RecordingBackend(
-        throws: UrlLaunchException(url: url, message: 'boom', platformCode: 5),
+        throws: UrlLaunchException(
+          url: url,
+          target: url.toString(),
+          message: 'boom',
+          platformCode: 5,
+        ),
       );
 
       expect(
@@ -84,7 +89,11 @@ void main() {
       final url = Uri.parse('https://a.test');
       final launcher = UrlLauncher.withBackend(
         _RecordingBackend(
-          throws: UrlLaunchException(url: url, message: 'boom'),
+          throws: UrlLaunchException(
+            url: url,
+            target: url.toString(),
+            message: 'boom',
+          ),
         ),
       );
 

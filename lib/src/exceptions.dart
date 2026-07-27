@@ -21,9 +21,20 @@ final class UrlLaunchException extends UrlLauncherException {
   /// Creates a launch failure for [url].
   const UrlLaunchException({
     required super.url,
+    required this.target,
     required this.message,
     this.platformCode,
   });
+
+  /// The string the operating system was actually handed.
+  ///
+  /// The same as `url.toString()` for every scheme but `file:`, where the URL
+  /// is converted to a native path first. **This is the form a message shows**,
+  /// because a percent-encoded URL is not something a user recognises as their
+  /// own file: `file:///G:/%E5%AE%B6%E3%81%AE…` names nothing they can act on,
+  /// while `G:\家の管理\…` does. The reference implementation pins the same
+  /// behaviour with a regression test of its own.
+  final String target;
 
   /// A human-readable account of what the operating system reported.
   final String message;
@@ -38,6 +49,6 @@ final class UrlLaunchException extends UrlLauncherException {
   @override
   String toString() {
     final code = platformCode == null ? '' : ' (code $platformCode)';
-    return 'UrlLaunchException: failed to open $url — $message$code';
+    return 'UrlLaunchException: failed to open $target — $message$code';
   }
 }
