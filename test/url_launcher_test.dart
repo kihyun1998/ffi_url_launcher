@@ -15,10 +15,18 @@ final class _RecordingBackend implements UrlLauncherBackend {
   final bool answer;
   final Object? throws;
   final List<Uri> launched = [];
+  final List<Uri> asked = [];
 
   @override
   bool launch(Uri url) {
     launched.add(url);
+    if (throws case final error?) throw error;
+    return answer;
+  }
+
+  @override
+  bool canOpen(Uri url) {
+    asked.add(url);
     if (throws case final error?) throw error;
     return answer;
   }
@@ -160,6 +168,69 @@ void main() {
       UrlLauncher.withBackend(backend).launchUrlSync(url);
 
       expect(backend.launched, [url]);
+    });
+  });
+
+  group('UrlLauncher.canLaunchUrl', () {
+    test('answers the backend unchanged, both ways', () async {
+      final url = Uri.parse('https://a.test/x');
+      final yes = _RecordingBackend();
+      final no = _RecordingBackend(answer: false);
+
+      expect(UrlLauncher.withBackend(yes).canLaunchUrlSync(url), isTrue);
+      expect(await UrlLauncher.withBackend(no).canLaunchUrl(url), isFalse);
+      expect(yes.asked, [url]);
+      expect(no.asked, [url]);
+    });
+
+    test('asks rather than launches', () {
+      // The whole point of this operation: it must have no side effect. If it
+      // ever reached `launch`, a caller checking before opening would open.
+      final backend = _RecordingBackend();
+      UrlLauncher.withBackend(
+        backend,
+      ).canLaunchUrlSync(Uri.parse('https://a.test'));
+
+      expect(backend.asked, hasLength(1));
+      expect(backend.launched, isEmpty);
+    });
+
+    test('applies the same shape check as launching', () {
+      // Asking "can I open C:\...\calc.exe?" is the same category error as
+      // trying to. One gate, both doors — ADR-0001's question (A).
+      final backend = _RecordingBackend();
+
+      expect(
+        () => UrlLauncher.withBackend(
+          backend,
+        ).canLaunchUrlSync(Uri.parse(r'C:\Windows\System32\calc.exe')),
+        throwsA(isA<UnsafeUrlError>()),
+      );
+      expect(backend.asked, isEmpty);
+    });
+
+    test('allowUnsafe reaches the backend here too', () {
+      final backend = _RecordingBackend();
+      final url = Uri.parse(r'C:\Windows\System32\calc.exe');
+
+      expect(
+        UrlLauncher.withBackend(
+          backend,
+        ).canLaunchUrlSync(url, allowUnsafe: true),
+        isTrue,
+      );
+      expect(backend.asked, [url]);
+    });
+
+    test('refuses a platform with no backend rather than answering false', () {
+      // A quiet `false` would be indistinguishable from "no handler here",
+      // which is a different fact.
+      expect(
+        () => UrlLauncher.forOperatingSystem(
+          'linux',
+        ).canLaunchUrlSync(Uri.parse('https://a.test')),
+        throwsA(isA<UnsupportedError>()),
+      );
     });
   });
 

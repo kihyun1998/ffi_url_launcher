@@ -67,4 +67,26 @@ class UrlLauncher {
   /// is asynchronous, not because this one is.
   Future<bool> launchUrl(Uri url, {bool allowUnsafe = false}) async =>
       launchUrlSync(url, allowUnsafe: allowUnsafe);
+
+  /// Whether anything on this system is registered to open [url].
+  ///
+  /// {@macro ffi_url_launcher.can_open_contract}
+  ///
+  /// {@macro ffi_url_launcher.allow_unsafe}
+  ///
+  /// Throws `UnsafeUrlError` for a refused shape and [UnsupportedError] on a
+  /// platform with no backend. It never throws for "no", which is an answer.
+  bool canLaunchUrlSync(Uri url, {bool allowUnsafe = false}) {
+    if (!allowUnsafe) checkUrlShape(url);
+    return _backend.canOpen(url);
+  }
+
+  /// Whether anything on this system is registered to open [url].
+  ///
+  /// The asynchronous form of [canLaunchUrlSync], and the one to reach for by
+  /// default — it matches `package:url_launcher`.
+  ///
+  /// {@macro ffi_url_launcher.can_open_contract}
+  Future<bool> canLaunchUrl(Uri url, {bool allowUnsafe = false}) async =>
+      canLaunchUrlSync(url, allowUnsafe: allowUnsafe);
 }

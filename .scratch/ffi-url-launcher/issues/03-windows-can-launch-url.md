@@ -17,13 +17,13 @@ Windows 판정은 `HKEY_CLASSES_ROOT\<scheme>`에 `URL Protocol` 값이 있는�
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done — gates green, cross-read against a second reader
 
-- [ ] `bool canLaunchUrlSync(Uri)`와 `Future<bool> canLaunchUrl(Uri)`가 모두 공개 API로 존재하고 동작이 같다
-- [ ] `https://` URL에 대해 `true`를 반환한다
-- [ ] 설치되지 않은 앱의 커스텀 스킴에 대해 `false`를 반환한다
-- [ ] 존재하지 않는 스킴에 대해 `false`를 반환한다
-- [ ] 이음새의 판정 메서드가 `canOpen(Uri)` 형태로 플랫폼 중립적이다
-- [ ] 레지스트리 핸들이 모든 경로(성공·실패·예외)에서 닫힌다
-- [ ] 실제 레지스트리를 상대로 하는 통합 테스트가 존재하며, 아무 앱도 실행하지 않는다
-- [ ] Fake 이음새 주입 단위 테스트가 true/false 경로를 덮는다
+- [x] `bool canLaunchUrlSync(Uri)`와 `Future<bool> canLaunchUrl(Uri)`가 모두 공개 API로 존재하고 동작이 같다
+- [x] `https://` URL에 대해 `true`를 반환한다
+- [x] 설치되지 않은 앱의 커스텀 스킴에 대해 `false`를 반환한다
+- [x] 존재하지 않는 스킴에 대해 `false`를 반환한다
+- [x] 이음새의 판정 메서드가 `canOpen(Uri)` 형태로 플랫폼 중립적이다
+- [x] 레지스트리 핸들이 모든 경로(성공·실패·예외)에서 닫힌다
+- [x] 실제 레지스트리를 상대로 하는 통합 테스트가 존재하며, 아무 앱도 실행하지 않는다
+- [x] Fake 이음새 주입 단위 테스트가 true/false 경로를 덮는다

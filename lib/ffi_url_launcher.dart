@@ -48,3 +48,23 @@ Future<bool> launchUrl(Uri url, {bool allowUnsafe = false}) =>
 /// {@macro ffi_url_launcher.allow_unsafe}
 bool launchUrlSync(Uri url, {bool allowUnsafe = false}) =>
     _default.launchUrlSync(url, allowUnsafe: allowUnsafe);
+
+/// Whether anything on this system is registered to open [url].
+///
+/// {@macro ffi_url_launcher.can_open_contract}
+///
+/// {@macro ffi_url_launcher.allow_unsafe}
+///
+/// Throws [UnsafeUrlError] for a refused shape and [UnsupportedError] on a
+/// platform with no backend. It never throws for "no" — that is an answer.
+Future<bool> canLaunchUrl(Uri url, {bool allowUnsafe = false}) =>
+    _default.canLaunchUrl(url, allowUnsafe: allowUnsafe);
+
+/// Whether anything on this system is registered to open [url],
+/// synchronously.
+///
+/// Identical to [canLaunchUrl] but for the return type.
+///
+/// {@macro ffi_url_launcher.can_open_contract}
+bool canLaunchUrlSync(Uri url, {bool allowUnsafe = false}) =>
+    _default.canLaunchUrlSync(url, allowUnsafe: allowUnsafe);

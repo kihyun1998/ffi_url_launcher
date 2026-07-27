@@ -103,5 +103,23 @@ Contradicted tests: none.
 - **macOS.** `NSWorkspace` takes an `NSURL`, not a string, so (B) may be a
   no-op there or may not exist. (A) is unchanged either way. Unmeasured until #4.
 - **Trust policy.** Deliberately outside both questions.
-- **`canLaunchUrl`.** A third question — *is there anything to reach the target
-  with?* — which #3 answers and which this record does not model.
+- **`canLaunchUrl` — a third question, and #3 has now answered it.** *Is there
+  anything to reach the target with?* It is genuinely separate from (A) and (B),
+  and shipping it did not disturb either: the shape check runs first for both
+  operations (one gate, both doors), and the registry read is a (B)-layer
+  platform mechanism that, like `shellTargetFor`, never refuses — "no handler"
+  is an answer it returns, not a refusal it raises.
+
+  So the record's shape survived contact with the third question rather than
+  needing to absorb it. What is worth stating is where the three sit:
+
+  | | Question | Layer | Refuses? |
+  |---|---|---|---|
+  | (A) | does this denote a target? | pure, cross-platform | yes — that is its job |
+  | (B) | what string does this OS need? | per platform | never |
+  | (C) | is there anything to reach it with? | per platform | never — answers `false` |
+
+  (C) is the one an OS may be unable to answer honestly. On Windows the launch
+  path cannot: an unregistered scheme comes back as success. Reading the
+  handler registry is what makes (C) answerable at all there, which is why it is
+  a separate operation rather than something `launch` could report.

@@ -241,3 +241,53 @@ to make and in what order; the marshalling is derived for the language actually
 being written.
 
 ---
+
+## #6 — A sibling's lesson was copied without measuring it, and it did not reproduce — Step 1
+
+**Rule it proves:** secondhand statements are verification targets *including*
+one written by this family; and the mutation gate is what exposes a doc-comment
+asserting a consequence nothing tests.
+
+Sibling `just_autostart`'s lessons #7 says the unsigned spelling of a predefined
+registry handle "produces a handle Windows does not recognise", and its
+`registry.dart` carries that reasoning in a dartdoc. Writing this package's
+registry binding, that paragraph was copied across and adapted for
+`HKEY_CLASSES_ROOT`.
+
+The mutation gate then refused to go red: swapping `-2147483648` for
+`0x80000000` changed no test result. A direct probe of all four predefined
+hives, both spellings, `RegOpenKeyExW`, Windows 11 (26200):
+
+```
+HKEY_CLASSES_ROOT    key=https      signed=0  unsigned=0
+HKEY_CURRENT_USER    key=Software   signed=0  unsigned=0
+HKEY_LOCAL_MACHINE   key=Software   signed=0  unsigned=0
+HKEY_USERS           key=.DEFAULT   signed=0  unsigned=0
+                                    (0 = ERROR_SUCCESS)
+```
+
+Both work. Re-reading the sibling's entry, its evidence is that
+`package:win32`'s generated source *spells it* signed — an argument from
+spelling, not a measured failure. Its own stated rule is *"a value you can
+recite is still a value you have not checked"*, and the consequence went
+unchecked; this package then propagated the claim a second time.
+
+**What changed:** the signed spelling stays — it is what the header means
+(`(LONG)` casts before widening, so the handle really is `0xFFFFFFFF80000000`)
+and it matches `package:win32`. What changed is the *reason* recorded beside it,
+from "the other one breaks" to "the other one is not what the header says, and
+only `RegOpenKeyExW` on this version has been measured". The clearance carries
+its validity condition rather than a claim the code cannot support.
+
+**Second finding, from the same gate.** The separator guard in
+`isSchemeRegistered` also survived mutation: without it,
+`https\shell\open\command` opens that key and still answers `false`, because no
+`URL Protocol` value lives there. It is defence for a caller reaching the seam
+directly — `Uri.scheme` cannot contain a separator — and both the code comment
+and the test now say that instead of implying a fix.
+
+**Cost had the gate not run:** two dartdoc paragraphs asserting measured facts
+that were not measured, in a file whose entire purpose is marshalling nobody can
+check by eye.
+
+---

@@ -17,6 +17,9 @@ final class UnsupportedUrlLauncherBackend implements UrlLauncherBackend {
   @override
   Never launch(Uri url) => throw UnsupportedError(_message);
 
+  @override
+  Never canOpen(Uri url) => throw UnsupportedError(_message);
+
   /// The refusal message.
   ///
   /// The supported half is **read out of [supportedPlatforms]** rather than

@@ -27,12 +27,18 @@ Initial slice — Windows launch.
   **`file:` is not blocked** — it is a supported desktop feature, so
   `file:///C:/…/calc.exe` still executes. The README lists what is and is not
   blocked side by side.
+- `canLaunchUrl(Uri)` / `canLaunchUrlSync(Uri)` answer whether anything on the
+  system is registered to open a URL, by reading `HKEY_CLASSES_ROOT` rather than
+  asking the shell to try. On Windows the launch path cannot answer this at all
+  — an unregistered scheme is reported as *success* after the shell opens its
+  own app picker — so this is the only reliable check. It opens nothing, and a
+  `true` means a handler is registered rather than that opening will succeed.
 - `UrlLaunchException.target` names the string the OS was actually handed, and
   the message shows it — for a `file:` URL that is the decoded path rather than
   the percent-encoded form, which is what a reader can recognise.
 - The only runtime dependency is `ffi`, and there are no build hooks — a
   consumer can still `dart compile exe`.
 
-Not yet implemented: macOS and `canLaunchUrl`. See the caveat on the return
-value in the README before relying on it; on Windows 11 an unregistered scheme
-currently reports success.
+Not yet implemented: macOS. See the caveat on `launchUrl`'s return value in the
+README — on Windows 11 an unregistered scheme reports success, which is why
+`canLaunchUrl` exists.

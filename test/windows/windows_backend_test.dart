@@ -73,4 +73,60 @@ void main() {
       );
     });
   });
+
+  group('WindowsUrlLauncherBackend.canOpen', () {
+    test('asks the registry about the scheme, not the whole URL', () {
+      // A registry key is named for the scheme. Handing over the whole URL
+      // would look up `https://a.test/x?y=1` as a key name and answer false for
+      // everything — and every other test in this suite passes either way,
+      // which is why this one exists.
+      final asked = <String>[];
+      WindowsUrlLauncherBackend(
+        schemeIsRegistered: (scheme) {
+          asked.add(scheme);
+          return true;
+        },
+      ).canOpen(Uri.parse('https://a.test/x?y=1#frag'));
+
+      expect(asked, ['https']);
+    });
+
+    test('answers the registry unchanged', () {
+      expect(
+        WindowsUrlLauncherBackend(schemeIsRegistered: (_) => true).canOpen(url),
+        isTrue,
+      );
+      expect(
+        WindowsUrlLauncherBackend(
+          schemeIsRegistered: (_) => false,
+        ).canOpen(url),
+        isFalse,
+      );
+    });
+
+    test('never launches anything on the way', () {
+      // If canOpen ever reached ShellExecuteW, a caller checking before opening
+      // would open. The injected launcher records that it was not called.
+      var launches = 0;
+      WindowsUrlLauncherBackend(
+        shellExecute: (_) {
+          launches++;
+          return 42;
+        },
+        schemeIsRegistered: (_) => true,
+      ).canOpen(url);
+
+      expect(launches, 0);
+    });
+
+    test('does not throw when the answer is no', () {
+      // "No handler" is an answer, not a failure.
+      expect(
+        () => WindowsUrlLauncherBackend(
+          schemeIsRegistered: (_) => false,
+        ).canOpen(url),
+        returnsNormally,
+      );
+    });
+  });
 }

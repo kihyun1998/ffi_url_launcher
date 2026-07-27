@@ -8,8 +8,7 @@ hooks** — so a consumer can still `dart compile exe` into a single executable.
 
 > **Status: early. Windows only so far.** macOS is designed but not yet wired;
 > calling this on any platform without a backend raises `UnsupportedError` that
-> names the platform. `canLaunchUrl` is not implemented yet — read the caveat on
-> the return value below before relying on it.
+> names the platform.
 
 ## Usage
 
@@ -52,13 +51,26 @@ and on Windows it means less than it looks:
 > Measured on Windows 11: `ShellExecuteW` answers **success** for a scheme
 > nothing is registered to handle, because what it successfully launched is its
 > own "how do you want to open this?" dialog. The documented `SE_ERR_NOASSOC`
-> code is not reachable through a URL scheme. So `false` is **currently
-> unreachable on Windows for schemes**, and a `true` can mean the user was shown
-> a Store lookup instead of their content.
+> code is not reachable through a URL scheme, so `false` is effectively
+> unreachable on Windows for schemes and a `true` can mean the user was shown an
+> app picker instead of their content.
 
-Reading the registry — the forthcoming `canLaunchUrl` — is the only reliable way
-to know beforehand. Until it lands, treat `true` as "the request was accepted",
-not as "it worked".
+**Ask first** — that is what `canLaunchUrl` is for. It reads the system's
+registry of handlers rather than asking the shell to try, so it can answer the
+question the launch path cannot, and it opens nothing:
+
+```dart
+final url = Uri.parse('obsidian://open?vault=notes');
+if (await canLaunchUrl(url)) {
+  await launchUrl(url);
+} else {
+  print('nothing on this machine handles obsidian: URLs');
+}
+```
+
+A `true` there says a handler is **registered**, not that opening will succeed —
+the registered application can still be missing or broken. It is the strongest
+answer the OS gives without launching anything.
 
 ## Security
 

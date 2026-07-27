@@ -19,4 +19,19 @@ abstract interface class UrlLauncherBackend {
   /// #4 for the measurement.
   /// {@endtemplate}
   bool launch(Uri url);
+
+  /// Whether anything on this system is registered to open [url].
+  ///
+  /// {@template ffi_url_launcher.can_open_contract}
+  /// Asks the operating system's own registry of handlers rather than asking
+  /// the shell to try — which on Windows cannot answer the question at all,
+  /// since an unregistered scheme is answered with *success* after the shell
+  /// opens its own app picker (`docs/agents/lessons.md` #4).
+  ///
+  /// A `true` says a handler is **registered**, not that opening will succeed:
+  /// the registered application may be missing, broken, or unable to handle
+  /// this particular URL. It is the strongest answer the OS offers without
+  /// launching anything, and it has no side effects.
+  /// {@endtemplate}
+  bool canOpen(Uri url);
 }
