@@ -12,22 +12,31 @@
 
 **Blocked by:** 없음 — 바로 시작 가능
 
-**Status:** ready-for-agent
+**Status:** done — gates green, both manual proofs observed
 
-- [ ] 예제를 Windows에서 실행하면 기본 브라우저가 열린다
-- [ ] `bool launchUrlSync(Uri)`와 `Future<bool> launchUrl(Uri)`가 모두 공개 API로 존재하고 동작이 같다 (비동기는 동기 호출을 즉시 완료되는 Future로 감쌈)
-- [ ] 성공 시 `true`를 반환한다
-- [ ] `SE_ERR_NOASSOC`(31, 이 URL을 열 앱이 없음)이면 예외 없이 `false`를 반환한다
-- [ ] 그 외 32 이하 반환값이면 `UrlLaunchException`을 던진다. 예외는 `url`, `platformCode`(int?), `message`를 담는다
-- [ ] 네이티브 호출이 주입 가능한 추상 이음새 뒤에 있고, ~~`@visibleForTesting` 생성자로만 교체 가능하며~~ 공개 API 표면에는 노출되지 않는다
-- [ ] Fake 이음새를 주입한 단위 테스트가 에러 코드 매핑을 검증한다 (최소한 31 → `false`, 5 → throw, 33 → `true`)
+- [x] 예제를 Windows에서 실행하면 기본 브라우저가 열린다
+
+> **수동 증명 기록 (Step 4의 성공 절반 — CI에는 자동화 형태가 없다).** Windows 11 (26200)에서 화면으로 확인:
+>
+> | 실행 | 프로그램 출력 | 화면 |
+> |---|---|---|
+> | `dart run example/… ` (`https://dart.dev`) | `Handed https://dart.dev to its registered handler.` | 기본 브라우저 열림 ✓ |
+> | `launchUrlSync(Uri.file(…\한글파일.txt))` | `true` | 메모장 열림 ✓ |
+>
+> 두 번째가 `file:` 수정의 증명이다 — 같은 파일이 수정 전에는 `SE_ERR_FNF`(2)였다. `true`만으로는 부족한 이유는 lessons #4에 있다: 미등록 스킴도 42(성공)를 반환하면서 셸이 자기 대화상자를 띄운다. **창을 봐야 증명이 된다.**
+- [x] `bool launchUrlSync(Uri)`와 `Future<bool> launchUrl(Uri)`가 모두 공개 API로 존재하고 동작이 같다 (비동기는 동기 호출을 즉시 완료되는 Future로 감쌈)
+- [x] 성공 시 `true`를 반환한다
+- [x] `SE_ERR_NOASSOC`(31, 이 URL을 열 앱이 없음)이면 예외 없이 `false`를 반환한다
+- [x] 그 외 32 이하 반환값이면 `UrlLaunchException`을 던진다. 예외는 `url`, `platformCode`(int?), `message`를 담는다
+- [x] 네이티브 호출이 주입 가능한 추상 이음새 뒤에 있고, ~~`@visibleForTesting` 생성자로만 교체 가능하며~~ 공개 API 표면에는 노출되지 않는다
+- [x] Fake 이음새를 주입한 단위 테스트가 에러 코드 매핑을 검증한다 (최소한 31 → `false`, 5 → throw, 33 → `true`)
 
 > **정정 — 이 criterion은 쓰인 대로는 만족 불가능하다.** `@visibleForTesting`은 `package:meta`를 실제 의존성으로 요구하는데, 이 티켓의 다른 criterion(*"런타임 의존성이 `ffi` 하나뿐"*)과 정면으로 충돌한다. 둘 다 만족시킬 방법은 없다.
 >
 > 의존성 불변식이 이긴다 — 그게 `dart compile exe`를 지키는 조건이고, 형제 레포 `just_autostart`도 같은 상황에서 문서화된 `Autostart.withBackend` 공개 생성자로 해결했다. 대신 **이음새가 받는 타입을 export하지 않는 것**이 노출을 막는다: `UrlLauncherBackend`는 `lib/ffi_url_launcher.dart`에 없으므로 외부 코드가 `src/`를 파고들지 않고는 인자 타입을 이름 붙일 수 없다. 근거는 `docs/agents/theflow.md`의 모듈 맵 아래 주석.
-- [ ] pubspec의 런타임 의존성이 `ffi` 하나뿐이고, `flutter` 의존이 없으며, 버전이 `0.1.0`이다
-- [ ] 스캐폴딩 잔재(`Awesome` 클래스, 기본 예제, 기본 테스트)가 제거된다
-- [ ] `dart analyze`가 경고 없이 통과한다
-- [ ] `file:` URL이 비ASCII 경로에서 동작한다 — `ShellExecuteW`는 `file:` URL의 멀티바이트 UTF-8 퍼센트 이스케이프를 디코드하지 않는데 `Uri.toString()`은 항상 그걸 만들어내므로, 네이티브 경로로 변환한 뒤 넘긴다
+- [x] pubspec의 런타임 의존성이 `ffi` 하나뿐이고, `flutter` 의존이 없으며, 버전이 `0.1.0`이다
+- [x] 스캐폴딩 잔재(`Awesome` 클래스, 기본 예제, 기본 테스트)가 제거된다
+- [x] `dart analyze`가 경고 없이 통과한다
+- [x] `file:` URL이 비ASCII 경로에서 동작한다 — `ShellExecuteW`는 `file:` URL의 멀티바이트 UTF-8 퍼센트 이스케이프를 디코드하지 않는데 `Uri.toString()`은 항상 그걸 만들어내므로, 네이티브 경로로 변환한 뒤 넘긴다
 
 > **추가된 criterion (구현 중 발견).** 원래 이 티켓에는 `file:` 처리가 아예 없었다. 최초에 레퍼런스 C++를 **요약 fetch로 읽어서** `LaunchUrl` 안의 `if (url.find("file:") == 0)` 분기가 통째로 누락됐기 때문이다 — 요약은 "어떤 함수를 부르는가"를 맞게 답하고 "어떤 조건에서 무엇을 하는가"를 버렸다. 실측: 존재하는 `한글파일.txt`가 `SE_ERR_FNF`(2)로 실패했다. 근거는 `docs/agents/lessons.md` #5.
