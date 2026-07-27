@@ -355,15 +355,19 @@ Everything else is gated on enumeration risk as usual.
   repo now has `docs/agents/`, so `.pubignore` must exclude `docs/` **and**
   repeat the `.gitignore` entries, because a present `.pubignore` replaces
   `.gitignore` for archive purposes.
-- **Decision records** — `docs/adr/`, created lazily. **Areas that already carry a
-  record: none.** That empty list is what the filing step checks before proposing
-  a spine, so a cluster with a home never gets a second one — keep it current as
-  records land.
-- **The issue tracker** is the decision trail until `docs/adr/` exists — GitHub
-  Issues, per `issue-tracker.md`. **Open spines: #8** (*nothing normalises a URL
-  before it reaches the shell*), roster in its comments. Check that list before
-  proposing another anchor. The long-form design records live in
-  `.scratch/ffi-url-launcher/issues/`; each names the issue that carries its
+- **Decision records** — `docs/adr/`. **Areas that already carry a record:**
+
+  | Record | Status | Area it governs |
+  |---|---|---|
+  | [ADR-0001](../adr/0001-two-questions-about-every-url.md) | accepted | everything between a caller's `Uri` and the OS call — shape (A) and marshalling (B). Promoted from spine #8 |
+
+  This list is what the filing step checks **before** proposing a spine. An
+  issue in an area that already has a record is a **conformance item under that
+  record**, never a sibling under a new anchor — two homes for one throughline
+  is the failure the rung exists to prevent. Keep it current as records land.
+- **The issue tracker** — GitHub Issues, per `issue-tracker.md`. **Open spines:
+  none** (#8 promoted to ADR-0001 and closed). The long-form design records live
+  in `.scratch/ffi-url-launcher/issues/`; each names the issue that carries its
   state, and the issue carries the labels and the blocking edges.
 
 **What earns a record here:** two or more of theflow's promotion triggers in one

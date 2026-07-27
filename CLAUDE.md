@@ -80,9 +80,12 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
 
 ### Domain docs
 
-**Single-context** — `CONTEXT.md` plus `docs/adr/` at the repo root. Neither
-exists yet; `/domain-modeling` creates them lazily. Until one does, the decision
-trail is the issue tracker plus `.scratch/ffi-url-launcher/issues/`.
+**Single-context** — `CONTEXT.md` plus `docs/adr/` at the repo root.
+`docs/adr/` now exists and holds **ADR-0001, "Every URL is asked two independent
+questions, in order"** — read it before changing anything between a caller's
+`Uri` and the OS call. `CONTEXT.md` does not exist yet; `/domain-modeling`
+creates it lazily. The rest of the decision trail is the issue tracker plus
+`.scratch/ffi-url-launcher/issues/`.
 
 ### Issue tracker
 
