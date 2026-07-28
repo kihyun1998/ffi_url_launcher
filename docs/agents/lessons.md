@@ -653,3 +653,136 @@ without ever measuring what 500 would show — which is the same species as
 `lessons.md` #6, where a guard's *reason* was never checked, and #9, where a
 suite of negative assertions could not distinguish two states. Filed as issue
 #11 before fixing.
+
+---
+
+## #12 — The cure for #11 was about to become the disease on the other platform — Steps 4, 5, 7
+
+**Rule it proves:** an instrument is part of a test's validity, exactly as scale
+was in #11. A guard can run the right code, at the right scale, with a mutation
+gate in place, and still measure nothing — because the counter it reads cannot
+see the resource it is guarding.
+
+Windows had no handle- or memory-accumulation guard; macOS got one in #11. The
+obvious move was to port #11's shape — 50,000 iterations, a warm-up pass, an
+assertion on `ProcessInfo.currentRss` growth. **That test would have been green
+with the defect in place.**
+
+Measured on Windows 11 (26200), `RegCloseKey` deleted from `isSchemeRegistered`
+and nothing else changed, 100,000 lookups:
+
+| instrument | shipped code | `RegCloseKey` removed |
+|---|---|---|
+| `GetProcessHandleCount` | 143 → 143 (**+0**) | 2143 → 52143 (**+50,000**) |
+| `QuotaPagedPoolUsage` | +0 B (byte-exact) | **+802,816 B** |
+| `ProcessInfo.currentRss` | +204 KB / +92 KB | **+252 KB** |
+
+A leaked `HKEY` is a **kernel object**. It is charged to the process's paged-pool
+quota and never appears in the address space RSS measures, so the leaking run and
+the clean run land in the same noise band. The resource kind decides the
+instrument: RSS for the macOS autorelease pool, handle count for the Windows
+registry handle. Neither substitutes for the other.
+
+**The counter had been used here before, and that is the sharper half.** The #7
+completeness pass already cleared the handle-leak concern with
+`GetProcessHandleCount` and validated it by leaking 500 handles on purpose. So
+the missing thing was never the measurement — it was that **a one-time clearance
+does not fail when someone reintroduces the defect.** Issue #13 was filed saying
+Windows "has no guard", which is true, while implying the concern had never been
+measured, which is false; the correction was posted to the issue on finding it.
+The general form: a cleared concern recorded with its validity condition is a
+*fact*, and a fact is not a *gate*.
+
+**A second design assumption died on measurement.** #13 specified a **strict
+equality** assertion, on the grounds that the handle count is noise-free — 143 →
+143 reproduced exactly across every probe run. A probe of two suites says that
+was unsafe:
+
+```
+PROBE-A pid=27400
+PROBE-B pid=27400  handles=169          <- same process
+PROBE-B after opening 200 files  =369   <- while A was still dwelling
+PROBE-B after closing            =169
+```
+
+`dart test` runs suites as **isolates in one process**, so every process-wide OS
+counter is shared state across test files — and unlike the scratch-key collision
+in `just_autostart`'s lessons #8, this one needs no shared *name*: merely
+existing is enough. Sampled 17M times during a full suite run the band is only
+2–3 handles, but a suite that opens files moves it by 200. So the guard asserts a
+**derived ceiling**, and iterations drop from #11's 50,000 to 20,000, because a
+precise instrument buys back the scale a noisy one has to spend.
+
+**The ceiling took two goes, and the first one is the lesson.** It was 1,000,
+justified by that 200-file probe. Review found two things wrong with it at once:
+the 200 is not a number any suite in *this* repo produces — it came from a probe
+built to produce it — and at 1,000 the guard is blind to any leak slower than one
+handle per 20 calls. **"Why a ceiling rather than equality" and "how big the
+ceiling is" are different questions, and one measurement cannot answer both.**
+The 200 answers the first (a concurrent suite *can* move this by hundreds, so
+equality is unsafe); only the measured 2–3 may set the second. It is now **100** —
+33x the measured noise, 200x under the regression.
+
+The same confusion had already produced a worse instance one assertion away. The
+positive control's closing check reused that 1,000 ceiling against a signal of
+**500**, so a `RegCloseKey` wired to nothing would have left exactly 500 behind
+and passed — an assertion that could not fail for the reason its own message
+gave, in the file written to document that disease. Mutation-checked after the
+fix: a no-op close now reports `closing all 500 handles left 500 behind` against
+a bound of 50. **A borrowed threshold is not a derived one**, and this is the
+cheapest way to get #11's mistake back after fixing it.
+
+**The guard carries a positive control, for #9's reason.** The main assertion is
+a *negative* — "the number did not move" — and this package has already shipped a
+whole suite of negatives that could not tell a real answer from a question nobody
+asked. A `GetProcessHandleCount` binding whose marshalling silently returned a
+constant would satisfy it perfectly. So the file also leaks 500 handles on
+purpose and asserts the counter moves and comes back, which is the #7 probe
+promoted from a one-off into a standing assertion.
+
+Mutation-checked, both directions:
+
+```
+# RegCloseKey commented out
+the process gained 20000 kernel handles over 20000 registry lookups,
+past the 1000 ceiling.
+# restored
++2: All tests passed!
+```
+
+### The performance half of the same investigation found nothing to fix — and that took two corrections to establish
+
+Recorded because the *negative* result is what stops the next person re-opening
+these three, and because both wrong turns were mine.
+
+- **A performance number measured under `dart run` is measuring the JIT.** Cold
+  one-shot lookup: **5,165–10,073 µs under `dart run`, 174–244 µs from a compiled
+  binary — 28x.** Every candidate ranked off the JIT number was ranked against a
+  cost nobody pays. `Platform.environment`'s first access looked like 25% of the
+  cold path at ~1.5 ms; in AOT it is 70 µs. This package's whole promise is
+  `dart compile exe`, so **AOT is the only honest measurement**, and the *cold*
+  number matters more than the amortised one — a CLI opens one URL and exits.
+- **Sequential A-then-B blocks cannot measure a shared OS resource.** Comparing
+  `RegGetValueW` (one syscall) against open+query+close (three) that way gave
+  +25%, +3%, −25%, −63%, +11%, −18%, −2%, −20% over eight runs — enough spread to
+  "prove" any conclusion. The first reading taken from it, *"25% faster"*, was
+  noise. Interleaved A/B/A/B with medians and reported spread: **+1.8% / −1.7% /
+  +4.6%**, i.e. nothing.
+- **Why nothing was there to find.** In AOT, everything this package controls —
+  three FFI transitions, one arena, three UTF-16 marshals — is **0.96 µs of a
+  ~20 µs lookup, about 5%.** The rest is the registry. That single number kills
+  all three candidates at once: the syscall collapse (measured 0), caching the
+  `'URL Protocol'` / `'open'` constants (0.58 µs, under the noise floor, at the
+  price of a process-lifetime `malloc`), and removing `Platform.environment` (70 µs
+  of a 184 µs cold path — the only real candidate, **declined** because buying it
+  means reversing the KnownDLLs absolute-path decision `system32.dart` argues for,
+  against a cost no human can perceive).
+
+**Cleared, with its validity condition:** the **launch** path accumulates
+nothing. Three passes of 5,000 real `ShellExecuteW` calls gave 138 → 16 → **−4**
+bytes/call and handles +5 → +5 → −1, i.e. a cache being populated, not a leak — a
+single pass had read as 170 bytes/call, close to #11's 209, and could not tell the
+two apart. It is not guarded by a test, deliberately: that path holds **no kernel
+object of its own**, so there is no release to delete and a mutation gate has
+nothing to grip. The clearance holds **as long as that stays true** — the day the
+launch path takes ownership of any OS handle, it needs its own guard.

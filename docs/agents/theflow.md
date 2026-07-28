@@ -175,6 +175,16 @@ finds another.
   `RegGetValueW` does. This package only tests a value's *existence* and never
   reads its bytes, so the hazard does not bite here — but any change that starts
   reading a value must switch reader.
+- **A leaked `HKEY` is invisible to resident memory.** The registry lookup is the
+  only place this package holds a **kernel object**, and a kernel object is
+  charged to the process's paged-pool quota — never to the address space
+  `ProcessInfo.currentRss` measures. Measured, the leaking and the correct run
+  land in the same RSS noise band. **So the macOS memory test's shape does not
+  port here**: copying `ns_workspace_integration_test.dart`'s `currentRss`
+  assertion to Windows produces a test named for accumulation that sits green
+  with 50,000 handles leaked behind it — the exact disease #11 was opened for,
+  reproduced by copying its cure. The instrument for a kernel object is
+  `GetProcessHandleCount`. Numbers in `lessons.md` #12.
 - **`HKEY_CLASSES_ROOT` is a merged view** of `HKLM\Software\Classes` and
   `HKCU\Software\Classes`. Reading it therefore covers per-user installs, which
   is most modern applications. Reading `HKLM` alone would miss them.
@@ -363,12 +373,41 @@ of it becomes live at the first publish.
 | **Windows scheme lookup** | ask through our FFI, then cross-read the same key with a **different reader** — `reg query "HKCR\<scheme>" /v "URL Protocol"`. Our reader agreeing with our writer proves nothing about what Windows thinks |
 | **macOS handler lookup** | ask through our FFI, then cross-read the **same question in Swift** — `NSWorkspace.shared.urlForApplication(toOpen:)`, run with `/usr/bin/swift`, must name the same application. This is not optional politeness: it is the reader that caught `lessons.md` #9, where our FFI and our own tests agreed with each other and were both wrong. Assert a **positive** (a scheme that resolves to a real app), never only absences |
 | **Launch, failure half** | **Windows:** a **path that does not exist** returns 2 and opens no window — this proves the library loaded, the symbol resolved, UTF-16 marshalling survived, and the code→exception mapping fired. CI-safe. ⚠ **Not** "an unregistered scheme returns `false`": that was this doc's original claim and the measurement falsified it (`lessons.md` #4). **macOS:** a **missing `file:` URL** answers `NO` with no window — the same role, and the same *shape* of input as Windows. ⚠ **Not** an unregistered scheme: it answers `NO` too, but raises a modal panel, so it is skipped exactly as its Windows twin is (`lessons.md` #8 correction, #9). ⚠ **And a negative alone proves nothing here** — a nullptr class returns `NO` as convincingly as the real one, so the load must be pinned by a **positive** assertion in the lookup group |
+| **FFI object lifetime** (Step 5's second unconditional trigger) | **the instrument is chosen per resource kind, and proved on the resource it is watching.** A kernel object (an `HKEY`) is charged to paged pool and is invisible to RSS; an autoreleased Objective-C object is in the address space and invisible to a handle count. So: `GetProcessHandleCount` for the Windows registry handle, `ProcessInfo.currentRss` for the macOS pool. Each guard needs **three** things, not one — (i) a mutation that deletes the release and turns it red, (ii) a **positive control** proving the counter moves when the resource really leaks, since the assertion itself is a negative and `lessons.md` #9 is what a suite of negatives costs, and (iii) a ceiling **derived** from the measured signal, the measured noise, and the measured worst case, written beside the test |
 | **Launch, success half** | manual, once per backend. A browser actually appearing is the assertion, and there is no automated substitute |
 | **Consumer round-trip** | N/A until first publish. The link mechanism when it applies: `dependency_overrides: {ffi_url_launcher: {path: ../ffi_url_launcher}}` in the consumer, then the consumer's **full** suite |
 
 **Trap — the tautological proof.** Our reader agreeing with our writer says
 nothing about whether Windows or `NSWorkspace` will accept what we produced.
 Every OS-facing layer above cross-reads with an OS-native tool for that reason.
+
+**Trap — a performance number measured under `dart run` is measuring the JIT.**
+This package's central promise is that a consumer can `dart compile exe`, so the
+consumer's cost is the **AOT** cost, and the two are not close: a cold one-shot
+registry lookup measured **5,165–10,073 µs under `dart run` against 174–244 µs
+from a compiled binary — 28x**. Every conclusion drawn from the JIT number is
+about a cost nobody pays; `Platform.environment`'s first access looked like 25%
+of the cold path at 1.5 ms and is 70 µs in AOT. **Compile the probe.** And prefer
+the *cold* number to the amortised one — a CLI opens one URL and exits, so
+steady-state throughput is not what its user waits for. See `lessons.md` #12.
+
+**Trap — a single-pass memory measurement cannot tell a cache from a leak.**
+Both grow on the first pass and only one keeps growing, so one pass reads the
+same either way. The launch path measured **170 bytes/call** over one pass —
+close enough to the 209 bytes/call of a real macOS leak (#11) to look like one —
+and three passes gave 138 → 16 → **−4**, i.e. a cache being populated. **Always
+run at least two passes and say which decayed**; a leak holds its rate, a cache
+collapses toward zero. This is why the macOS guard warms up before it measures,
+and it is the rule that both this project's memory measurements now follow.
+
+**Trap — measuring against a shared OS resource in sequential A-then-B blocks.**
+The registry has its own caches and other processes are hitting it, so
+consecutive timing blocks measure drift rather than code. Two implementations
+that are genuinely within 2% of each other reported +25%, +3%, −25%, −63%, +11%,
+−18%, −2%, −20% across eight such runs — a swing wide enough to "prove" whichever
+answer you wanted. **Interleave A/B/A/B and compare medians**, alternating which
+variant leads, and report the spread beside the median so a claim that does not
+clear it cannot be made. Same entry.
 
 **Trap — CI cannot verify the thing the package is for.** A green matrix proves
 "the call was shaped as intended", never "the browser opened". The success half
@@ -499,6 +538,18 @@ AOT. Have it call `canLaunchUrlSync(Uri.parse('https://…'))` and expect `true`
 - **`dart test` does not run `example/`.** It has no separate `pubspec.yaml`, so
   `dart analyze` covers it, but nothing executes it. This gap is recorded, not
   closed.
+- **Neither `dart format .` nor `dart analyze` reaches `.scratch/`** — both skip
+  dot-directories. Measured: a file of outright invalid Dart placed there leaves
+  `dart analyze --fatal-infos` reporting *"No issues found!"* and exiting 0, while
+  `dart analyze --fatal-infos .scratch/` catches it (exit 3). So the committed
+  measurement probes there **can rot silently** as the package's internals move.
+  **The gap is closeable in one gate line and is deliberately left open**:
+  `.scratch/` is where a throwaway belongs, and gating it would make a
+  half-finished probe break `main`. What carries the durability instead is that
+  the *numbers* live in `lessons.md`, not in the probes — a probe is a
+  convenience for re-measuring, valid as of its commit. Probes are still expected
+  to pass `dart analyze .scratch/` when committed; that is a hand-run check, not a
+  gate.
 - **Run each gate bare, never piped.** `dart test | tail -1 && commit` always
   commits: a pipeline's exit status is `tail`'s, and `tail` always succeeds.
 - **Format runs after `pub get`** — `dart format` reads the language version from
@@ -509,6 +560,15 @@ AOT. Have it call `canLaunchUrlSync(Uri.parse('https://…'))` and expect `true`
   lessons #8: two files sharing one scratch registry key destroyed each other
   because `dart test` runs files concurrently. Any test that touches shared OS
   state uses a key unique to its file.
+- **And it runs those files as isolates in *one process*** — measured, identical
+  `pid` across two suites, one provably opening handles while the other dwelt. So
+  every **process-wide** OS counter (handle count, pool quota, RSS) is shared
+  state across test files, and this collision needs no shared *name* to happen:
+  merely existing is enough. A strict-equality assertion on such a counter is
+  flaky by construction. `test/windows/handle_lifetime_test.dart` therefore
+  asserts a **derived ceiling** rather than equality — measured noise from a full
+  concurrent suite run is 2–3 handles, a suite opening 200 files moves it by 200,
+  and the regression it guards moves it by 20,000.
 - **Convention:** ticket → implement → `/code-review` → commit referencing the
   issue (`Closes #n`) → fast-forward merge to `main` → push → confirm CI green.
   No PR flow; this is a solo repo, matching the family.
