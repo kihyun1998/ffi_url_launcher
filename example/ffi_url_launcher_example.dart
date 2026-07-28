@@ -23,19 +23,9 @@ Future<void> main(List<String> arguments) async {
     // effectively unreachable for a URL scheme, because the shell reports that
     // it accepted the request and not what became of it.
     //
-    // `canLaunchUrl` is not wired on macOS yet (issue #5), where it throws
-    // `UnimplementedError`. Rather than crash, note it and fall through to
-    // launching directly — the honest current behaviour on that platform.
-    try {
-      if (!await canLaunchUrl(target)) {
-        print('Nothing on this machine is registered to open $target.');
-        return;
-      }
-    } on UnimplementedError {
-      print(
-        'canLaunchUrl is not available on this platform yet (macOS, issue #5) '
-        '— launching without asking first.',
-      );
+    if (!await canLaunchUrl(target)) {
+      print('Nothing on this machine is registered to open $target.');
+      return;
     }
 
     await launchUrl(target);

@@ -95,25 +95,40 @@ msgSendIdReturningBool = _objc
 /// class. The returned `Class` is a runtime singleton and is **not owned** —
 /// never released.
 ///
-/// Call [ensureAppKitLoaded] first for any class that lives in AppKit
-/// (`NSWorkspace`): the runtime only knows a class once the framework binary
-/// carrying it has been mapped in, which does not happen on its own in a plain
-/// Dart process.
-Pointer<Void> objcClass(String name) =>
+/// **Private on purpose.** A `nullptr` from here is silent rather than fatal —
+/// messaging it answers `NO` to everything — so the raw lookup is not something
+/// to hand out. The only caller is [_classInAppKit], which loads the framework
+/// first and throws when the lookup fails; every class this package messages
+/// comes from there.
+Pointer<Void> _objcClass(String name) =>
     using((arena) => objcGetClass(name.toNativeUtf8(allocator: arena)));
 
-/// Maps AppKit (and, through it, Foundation) into the process so the runtime
-/// can resolve `NSWorkspace`, `NSURL` and `NSString`.
+/// The `NSWorkspace` class, looked up after AppKit has actually been mapped in.
 ///
-/// The work is a side effect: *evaluating* the lazy `_appKit` final runs
-/// `DynamicLibrary.open`, which maps the framework in. There is nothing to
-/// check afterwards — `open` **throws** if the framework is absent, so a
-/// missing AppKit surfaces as that throw, not as a null handle. Reading
-/// `.handle` is just the touch that forces the evaluation. Idempotent and cheap
-/// after the first call, since a resolved final is not re-run.
-void ensureAppKitLoaded() {
-  _appKit.handle;
-}
+/// {@template ffi_url_launcher.checked_class}
+/// **A nullptr class is not an error in Objective-C — it is a silent one.**
+/// Messaging `nil` returns `nil`/`0`/`NO` instead of failing, so a class that
+/// never loaded answers every question in the negative and looks exactly like a
+/// real object saying "no". A probe wrote AppKit as a lazy top-level `final`,
+/// never referenced it, and therefore measured `NSWorkspace` saying `NO` to
+/// everything — off a class the runtime had never heard of. Cross-reading the
+/// same question in Swift is what exposed it (`docs/agents/lessons.md` #9).
+///
+/// So every class this package messages is resolved through [_classInAppKit],
+/// which **checks the lookup and throws**. The load is a direct
+/// `DynamicLibrary.open` call whose result feeds the lookup that follows,
+/// rather than a bare read of a lazy `final` kept alive only by convention —
+/// the shape the failure took the first time. Verified where it actually
+/// matters: a compiled `dart compile exe` consumer answers `true` for
+/// `https:`, which it could not do if the framework had not been mapped in.
+/// {@endtemplate}
+final Pointer<Void> nsWorkspaceClass = _classInAppKit('NSWorkspace');
+
+/// The `NSString` class. {@macro ffi_url_launcher.checked_class}
+final Pointer<Void> nsStringClass = _classInAppKit('NSString');
+
+/// The `NSURL` class. {@macro ffi_url_launcher.checked_class}
+final Pointer<Void> nsUrlClass = _classInAppKit('NSURL');
 
 /// Registers (or looks up) the selector [name]. Selectors are interned for the
 /// life of the process and are **not owned**.
@@ -144,15 +159,33 @@ T inAutoreleasePool<T>(T Function() body) {
 
 final DynamicLibrary _objc = DynamicLibrary.open('/usr/lib/libobjc.A.dylib');
 
-// AppKit is opened only so its symbols — `NSWorkspace`, `NSURL`, `NSString` —
-// are registered with the Objective-C runtime by the time `objc_getClass` is
-// asked for them. The classes are reached through the runtime, not through
-// these bindings, so nothing is looked up out of this handle directly; opening
-// it is the whole job. `NSURL` and `NSString` live in Foundation, which AppKit
-// links, so one open covers all three.
-final DynamicLibrary _appKit = DynamicLibrary.open(
-  '/System/Library/Frameworks/AppKit.framework/AppKit',
-);
+/// Maps AppKit in, then looks [name] up in the Objective-C runtime, throwing if
+/// the runtime does not know it.
+///
+/// Opening AppKit is what *registers* `NSWorkspace` with the runtime; the class
+/// is then reached through `objc_getClass`, never out of the returned handle,
+/// so the handle itself is discarded. `NSString` and `NSURL` live in
+/// Foundation, which AppKit links, so the one open covers all three — but each
+/// is still checked, because "which framework provides this" is not something
+/// to take on faith when getting it wrong fails silently.
+///
+/// `DynamicLibrary.open` is called directly rather than cached in a `final`. It
+/// is idempotent and cheap — `dlopen` hands back the already-mapped handle —
+/// and calling it on the path to a lookup that is then *checked* means the load
+/// cannot quietly not-happen, which is the whole failure this guards.
+Pointer<Void> _classInAppKit(String name) {
+  DynamicLibrary.open('/System/Library/Frameworks/AppKit.framework/AppKit');
+
+  final cls = _objcClass(name);
+  if (cls == nullptr) {
+    throw StateError(
+      'AppKit was loaded but the Objective-C runtime does not know "$name". '
+      'Messaging a nullptr class would silently answer NO to everything, so '
+      'this fails loudly instead.',
+    );
+  }
+  return cls;
+}
 
 // `void* objc_autoreleasePoolPush(void)` / `void objc_autoreleasePoolPop(void*)`
 final Pointer<Void> Function() _objcPoolPush = _objc

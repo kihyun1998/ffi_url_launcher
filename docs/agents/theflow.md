@@ -61,6 +61,24 @@ a safety check while providing none.
 **Every guard states which question it answers, in its own dartdoc.** When a
 pass finds another narrow affirmative, add the row.
 
+### It runs in the other direction too: a cheap "no"
+
+A negative can be just as narrow, and it is **harder** to catch, because the
+natural test for a failure path asserts exactly the value a broken call already
+returns:
+
+| The negative | What it actually means | What the reader takes it for |
+|---|---|---|
+| `objc_msgSend` to a nullptr class returned `nil`/`NO` | **nobody was asked** — the framework was never mapped in | "macOS said no" |
+| `canOpen` returned `false` | no handler is *registered* | "launching will fail" |
+| `launch` returned `false` on Windows | (effectively unreachable for a scheme) | "nothing opened it" |
+
+The measured instance is `lessons.md` #9: a probe that never loaded AppKit read
+`NO` off a class the runtime had never heard of, and an entire suite of negative
+assertions agreed with it. **Every OS-facing layer therefore needs at least one
+positive assertion** — a test that fails if the operating system was never
+actually asked. Negative-only coverage cannot distinguish the two states.
+
 ## Crate / module map
 
 **Pure Dart, single package.** No Flutter dependency, no native sources, no
@@ -83,7 +101,7 @@ spot does not exist here. The real blind spot is per-runner (Step 7).
 | `lib/src/exceptions.dart` | sealed exception hierarchy. Sealed on purpose: adding a failure mode makes the analyzer point at every exhaustive switch |
 | `lib/src/backends/unsupported_backend.dart` | throws from both operations rather than returning a quiet `false` |
 | `lib/src/backends/windows/` | hand-written `shell32` / `advapi32` bindings, the return-code decoding, and the `Run`-style scheme lookup. The marshalling **is** the dangerous part — no interface over it and no fake of it |
-| `lib/src/backends/macos/` | hand-written `libobjc` / AppKit bindings (`objc.dart`), the per-signature `objc_msgSend` declarations and the autorelease-pool discipline; `ns_workspace.dart` sends `[[NSWorkspace sharedWorkspace] openURL:]` and decodes the `BOOL` into `MacOpenOutcome`; `macos_backend.dart` maps that to the caller's value. `canOpen` is a stub throwing `UnimplementedError` until #5 (ticket 04 built launch; #5 builds the handler lookup) |
+| `lib/src/backends/macos/` | hand-written `libobjc` / AppKit bindings (`objc.dart`), the per-signature `objc_msgSend` declarations and the autorelease-pool discipline; `ns_workspace.dart` sends `[[NSWorkspace sharedWorkspace] openURL:]` and decodes the `BOOL` into `MacOpenOutcome`, and asks `URLForApplicationToOpenURL:` for the handler lookup; `macos_backend.dart` maps both to the caller's values. Classes resolve through `_classInAppKit`, which loads AppKit and **throws on a nullptr lookup** — a silent nil class is what `lessons.md` #9 cost |
 
 Rows marked **planned** do not exist yet. The table is a map of where things go,
 not an inventory of what is there; without the marker it reads as the latter and
@@ -201,25 +219,45 @@ finds another.
   **nullable** platform code, and it is always null on macOS. Do not invent a
   code to make the platforms look symmetric.
 - **`NSWorkspace.open`'s `NO` is honest and reachable, unlike the Windows `false`.**
-  Measured on macOS 14.5 (arm64): a scheme nothing handles
-  (`zzznotreal-ffiurllauncher://x`) and a `file:` URL for a missing file both
-  answered `NO` with **no window** (`lessons.md` #8). This is the inverse of the
-  Windows hazard where 42 = success for an unregistered scheme — so on macOS
-  `launch` returning `false` genuinely means "nothing opened this", and **both**
-  those inputs are CI-safe (no UI), where Windows had to fall back to a missing
-  *path* and skip the scheme. `MacOpenOutcome.notOpened` is the decode.
+  Measured on macOS 14.5 (arm64): both a scheme nothing handles and a `file:`
+  URL for a missing file answer `NO`. This is the inverse of the Windows hazard
+  where 42 = success for an unregistered scheme, so on macOS `launch` returning
+  `false` genuinely means "nothing opened this". `MacOpenOutcome.notOpened` is
+  the decode.
+- **But an unregistered scheme still raises a modal panel** — *"there is no
+  application set to open the URL"*, with App Store / Choose Application /
+  Cancel. `NO` **and** a window; the two are independent. So the CI-safe launch
+  input is the same on both platforms — **a target that does not exist**, never
+  a scheme nothing is registered for (`lessons.md` #8 correction, #9). A missing
+  `file:` URL is measured UI-free and is the one the integration test uses.
+- **`URLForApplicationToOpenURL:` is a lookup and shows nothing**, for any input
+  including that same scheme. So `canOpen`'s integration test may assert live
+  what `launch`'s must skip — the CI hazard belongs to the *operation*, not to
+  the URL.
+- **A nullptr Objective-C class answers every message with `nil`/`0`/`NO`,
+  silently.** AppKit must be mapped in before `objc_getClass('NSWorkspace')`, and
+  a lazy `final` holding the `DynamicLibrary` that nothing reads is never
+  evaluated — which cost this package a whole false measurement (`lessons.md`
+  #9). `NSString`/`NSURL` keep working throughout, because the Dart VM already
+  links Foundation, so URL construction succeeds while every workspace call
+  quietly says no. Classes therefore resolve through `_classInAppKit`, which
+  calls `DynamicLibrary.open` directly and **throws** on a `nullptr` lookup.
 - **`[NSURL URLWithString:]` is lenient — nil is nearly unreachable.** It returned
   a non-nil `NSURL` for the empty string, `"not a url with spaces"`, and every
   scheme tried (measured). So `MacOpenOutcome.invalidUrl` almost never fires from
   real input; it exists so a genuine parse failure does not masquerade as "no
   handler", and it is exercised only through the injected `openUrl` seam.
-- **`[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]` returned `nil`
-  for everything measured — including `https:` and `mailto:`.** This is the API
-  #5 (`canLaunchUrl` on macOS) rests on, and the reference uses it. A `nil` for
-  `https:` on a machine with a browser means #5 needs its own measurement, not a
-  transliteration of the reference (`lessons.md` #8). Until then `canOpen` on the
-  macOS backend throws `UnimplementedError` — deliberately **not**
-  `UnsupportedError`, which is reserved for "no backend for this platform".
+- **`URLForApplicationToOpenURL:` answers per-URL, where Windows answers
+  per-scheme.** It returns the application that *would* open this exact URL, or
+  `nil`. Measured, agreeing with Swift: `https:` → Google Chrome, `mailto:` →
+  Mail, `file:` → TextEdit, unregistered scheme → `nil`. This is why the seam is
+  `canOpen(Uri)` and not `schemeRegistered(String)` — and why a `file:` URL is
+  answered by its *extension's* handler on macOS, while on Windows `HKCR\file`
+  carries `URL Protocol` unconditionally and always answers `true`. **The same
+  call, asked about the same URL, can legitimately differ between the two.**
+- **The returned `NSURL` is autoreleased, not owned.** It comes from a `URLFor…`
+  accessor rather than a `copy`/`create`, so it must not be released; the pool
+  around the call bounds it.
 - **A Dart CLI has no Cocoa runloop, so nothing drains the autorelease pool.**
   Autoreleased objects accumulate until process exit unless the call is wrapped
   in an explicit `objc_autoreleasePoolPush` / `Pop`. Sibling `just_font_scan`
@@ -314,8 +352,8 @@ of it becomes live at the first publish.
 | **Shape check** (`url_safety.dart`) | table-driven tests over the **exact strings that were measured to fool a naive guard** — `C:\Windows\System32\calc.exe`, `\\attacker\share\evil.exe`, `evil.bat` — alongside the ones that must pass (`file:`, `ms-settings:`, `mailto:`, a custom scheme). A test built only from obviously-bad inputs proves nothing here |
 | **Return-code decoding** | a fake backend returning each documented `ShellExecuteW` code, asserting the three-way split (`> 32` → true, `31` → false, everything else → typed throw) |
 | **Windows scheme lookup** | ask through our FFI, then cross-read the same key with a **different reader** — `reg query "HKCR\<scheme>" /v "URL Protocol"`. Our reader agreeing with our writer proves nothing about what Windows thinks |
-| **macOS handler lookup** | ask through our FFI, then cross-read with the OS's own tool — `/usr/bin/open` on a known-absent scheme fails with a distinct error, on a known-present one succeeds |
-| **Launch, failure half** | **Windows:** a **path that does not exist** returns 2 and opens no window — this proves the library loaded, the symbol resolved, UTF-16 marshalling survived, and the code→exception mapping fired. CI-safe. ⚠ **Not** "an unregistered scheme returns `false`": that was this doc's original claim and the measurement falsified it (`lessons.md` #4). **macOS:** the honest inverse — both an **unregistered scheme** and a **missing `file:`** answer `NO` with no window (measured, `lessons.md` #8), proving the libobjc/AppKit load, the four `objc_msgSend` signatures, and the autorelease discipline. Both CI-safe |
+| **macOS handler lookup** | ask through our FFI, then cross-read the **same question in Swift** — `NSWorkspace.shared.urlForApplication(toOpen:)`, run with `/usr/bin/swift`, must name the same application. This is not optional politeness: it is the reader that caught `lessons.md` #9, where our FFI and our own tests agreed with each other and were both wrong. Assert a **positive** (a scheme that resolves to a real app), never only absences |
+| **Launch, failure half** | **Windows:** a **path that does not exist** returns 2 and opens no window — this proves the library loaded, the symbol resolved, UTF-16 marshalling survived, and the code→exception mapping fired. CI-safe. ⚠ **Not** "an unregistered scheme returns `false`": that was this doc's original claim and the measurement falsified it (`lessons.md` #4). **macOS:** a **missing `file:` URL** answers `NO` with no window — the same role, and the same *shape* of input as Windows. ⚠ **Not** an unregistered scheme: it answers `NO` too, but raises a modal panel, so it is skipped exactly as its Windows twin is (`lessons.md` #8 correction, #9). ⚠ **And a negative alone proves nothing here** — a nullptr class returns `NO` as convincingly as the real one, so the load must be pinned by a **positive** assertion in the lookup group |
 | **Launch, success half** | manual, once per backend. A browser actually appearing is the assertion, and there is no automated substitute |
 | **Consumer round-trip** | N/A until first publish. The link mechanism when it applies: `dependency_overrides: {ffi_url_launcher: {path: ../ffi_url_launcher}}` in the consumer, then the consumer's **full** suite |
 
@@ -415,6 +453,12 @@ Plus a guard that no other gate can express:
 ```
 dart compile exe   # in a throwaway consumer that depends on this package
 ```
+
+**The consumer must call something that answers positively**, not merely import
+the package or resolve a backend. A compiled binary printing a backend type
+proves the build worked; it does not prove the platform libraries load under
+AOT. Have it call `canLaunchUrlSync(Uri.parse('https://…'))` and expect `true` —
+`lessons.md` #9 is a bug that a type-printing consumer would have passed.
 
 - **Why that guard exists.** The package's central promise is that it adds no
   build hooks. `package:objective_c` and any `hooks:`-declaring dependency would

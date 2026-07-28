@@ -58,30 +58,84 @@ enum MacOpenOutcome {
 /// Everything transient is created inside an autorelease pool ([inAutoreleasePool])
 /// so repeated launches do not accumulate objects a CLI has no runloop to drain.
 MacOpenOutcome workspaceOpenUrl(String url) {
-  ensureAppKitLoaded();
-
   return inAutoreleasePool(() {
-    return using((arena) {
-      final nsString = msgSendCStringReturningId(
-        objcClass('NSString'),
-        selector('stringWithUTF8String:'),
-        url.toNativeUtf8(allocator: arena),
-      );
-      final nsUrl = msgSendIdReturningId(
-        objcClass('NSURL'),
-        selector('URLWithString:'),
-        nsString,
-      );
-      if (nsUrl == nullptr) return MacOpenOutcome.invalidUrl;
+    final nsUrl = _nsUrlFrom(url);
+    if (nsUrl == nullptr) return MacOpenOutcome.invalidUrl;
 
-      final workspace = msgSendReturningId(
-        objcClass('NSWorkspace'),
-        selector('sharedWorkspace'),
-      );
-      final opened =
-          msgSendIdReturningBool(workspace, selector('openURL:'), nsUrl) != 0;
+    final workspace = _sharedWorkspace();
+    final opened =
+        msgSendIdReturningBool(workspace, selector('openURL:'), nsUrl) != 0;
 
-      return opened ? MacOpenOutcome.opened : MacOpenOutcome.notOpened;
-    });
+    return opened ? MacOpenOutcome.opened : MacOpenOutcome.notOpened;
+  });
+}
+
+/// Whether macOS has an application registered to open [url].
+///
+/// Asks `[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]`, which
+/// answers the URL of the application that *would* be used, or `nil` when
+/// nothing would. The reference implementation asks exactly this
+/// (`workspace.urlForApplication(toOpen:) != nil`), and it is the current API —
+/// the pure-C `LSCopyDefaultApplicationURLForURL` was deprecated in macOS 12.
+///
+/// **This is a lookup, not an attempt.** It starts nothing and opens no window,
+/// which is what makes it safe to call before launching — and, unlike the
+/// launch path, safe to exercise in CI against a scheme nothing handles.
+///
+/// Measured on macOS 14.5, agreeing exactly with the same question asked from
+/// Swift: `https:` → Google Chrome, `mailto:` → Mail, `file:` → TextEdit, an
+/// unregistered scheme → `nil`.
+///
+/// A `false` for a URL string `NSURL` cannot construct at all: nothing can open
+/// what does not parse, and unlike [workspaceOpenUrl] there is no faulted
+/// operation to report — the question "is there a handler" has a truthful
+/// negative answer here.
+///
+/// **Ownership:** the returned `NSURL` comes from a `URLFor…` accessor, not a
+/// `copy`/`create`, so it is **autoreleased and not owned** — it must not be
+/// released, and the surrounding pool bounds its lifetime. Same discipline as
+/// [workspaceOpenUrl].
+bool workspaceCanOpenUrl(String url) {
+  return inAutoreleasePool(() {
+    final nsUrl = _nsUrlFrom(url);
+    if (nsUrl == nullptr) return false;
+
+    final workspace = _sharedWorkspace();
+    final application = msgSendIdReturningId(
+      workspace,
+      selector('URLForApplicationToOpenURL:'),
+      nsUrl,
+    );
+
+    return application != nullptr;
+  });
+}
+
+/// `[NSWorkspace sharedWorkspace]` — the process-wide singleton.
+///
+/// Not owned and never released: it is a shared instance the framework keeps
+/// for the life of the process, not something this call created.
+Pointer<Void> _sharedWorkspace() =>
+    msgSendReturningId(nsWorkspaceClass, selector('sharedWorkspace'));
+
+/// Builds an autoreleased `NSURL` from [url], or `nullptr` if `NSURL` refuses
+/// the string.
+///
+/// Must be called inside an [inAutoreleasePool]: both the intermediate
+/// `NSString` and the `NSURL` are autoreleased, so their lifetime is the pool's.
+/// The native UTF-8 buffer is freed with the arena as soon as `NSString` has
+/// copied it.
+Pointer<Void> _nsUrlFrom(String url) {
+  return using((arena) {
+    final nsString = msgSendCStringReturningId(
+      nsStringClass,
+      selector('stringWithUTF8String:'),
+      url.toNativeUtf8(allocator: arena),
+    );
+    return msgSendIdReturningId(
+      nsUrlClass,
+      selector('URLWithString:'),
+      nsString,
+    );
   });
 }

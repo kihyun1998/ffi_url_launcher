@@ -19,10 +19,21 @@ final class MacosUrlLauncherBackend implements UrlLauncherBackend {
   /// deliberately not behind this seam; substituting it would leave the
   /// dangerous part unproven, so it is exercised against the real frameworks in
   /// `test/macos/`.
-  const MacosUrlLauncherBackend({this.openUrl = workspaceOpenUrl});
+  const MacosUrlLauncherBackend({
+    this.openUrl = workspaceOpenUrl,
+    this.canOpenUrl = workspaceCanOpenUrl,
+  });
 
   /// Asks `NSWorkspace` to open a URL, returning the decoded outcome.
   final MacOpenOutcome Function(String url) openUrl;
+
+  /// Asks `NSWorkspace` whether an application is registered to open a URL.
+  ///
+  /// Injectable for the same reason as [openUrl] — so the *decision* can be
+  /// driven from any host. The lookup itself is exercised against the real
+  /// `NSWorkspace` in `test/macos/`, because a fake of the marshalling would
+  /// only agree with itself.
+  final bool Function(String url) canOpenUrl;
 
   @override
   bool launch(Uri url) {
@@ -50,17 +61,14 @@ final class MacosUrlLauncherBackend implements UrlLauncherBackend {
 
   @override
   bool canOpen(Uri url) {
-    // Deferred to #5. macOS answers this through
-    // `[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]`, which is a
-    // different call from `openURL:` and a slice of its own — and a probe found
-    // it returning `nil` even for `https:` on this host, so it needs its own
-    // measurement rather than a quick add here. Throwing `UnimplementedError`
-    // (not `UnsupportedError`, which is reserved for "no backend for this
-    // platform") says plainly that the operation exists but is not built yet,
-    // rather than answering a launch question with a quiet wrong `false`.
-    throw UnimplementedError(
-      'canLaunchUrl is not yet implemented on macOS (issue #5). launchUrl '
-      'works; asking whether a handler exists does not, yet.',
-    );
+    // {@macro ffi_url_launcher.can_open_contract}
+    //
+    // The whole URL is handed over, not just the scheme. That asymmetry with
+    // Windows — which reads a per-*scheme* registry key — is why the seam is
+    // named `canOpen(Uri)` rather than `schemeRegistered(String)`: macOS asks
+    // LaunchServices which application would open *this URL*, so a `file:` URL
+    // is answered by the extension's handler, not by whether `file` is a
+    // registered scheme.
+    return canOpenUrl(url.toString());
   }
 }

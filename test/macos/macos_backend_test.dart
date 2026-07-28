@@ -59,15 +59,50 @@ void main() {
   });
 
   group('MacosUrlLauncherBackend.canOpen', () {
-    test('throws UnimplementedError until #5, not UnsupportedError', () {
-      // The distinction is load-bearing: UnsupportedError means "no backend for
-      // this platform" and would misreport macOS as unsupported. This says the
-      // operation exists but is not built yet — and it must not answer a
-      // launchability question with a quiet, wrong `false`.
-      expect(
-        () => const MacosUrlLauncherBackend().canOpen(url),
-        throwsA(isA<UnimplementedError>()),
-      );
+    MacosUrlLauncherBackend backendAnswering(bool answer) =>
+        MacosUrlLauncherBackend(canOpenUrl: (_) => answer);
+
+    test('answers the lookup unchanged, both ways', () {
+      expect(backendAnswering(true).canOpen(url), isTrue);
+      expect(backendAnswering(false).canOpen(url), isFalse);
+    });
+
+    test('does not throw when the answer is no', () {
+      // "Nothing is registered" is an answer, not a failure — a caller must be
+      // able to ask without a try/catch.
+      expect(backendAnswering(false).canOpen(url), isFalse);
+    });
+
+    test('asks about the whole URL, not just the scheme', () {
+      // The measured Windows/macOS asymmetry, pinned. Windows reads a per-scheme
+      // registry key; macOS asks LaunchServices which application would open
+      // *this URL*, so the whole string must reach the lookup — a `file:` URL is
+      // answered by its extension's handler, which a scheme-only question could
+      // not express.
+      final seen = <String>[];
+      MacosUrlLauncherBackend(
+        canOpenUrl: (target) {
+          seen.add(target);
+          return true;
+        },
+      ).canOpen(Uri.parse('file:///tmp/a%20b.txt'));
+
+      expect(seen, ['file:///tmp/a%20b.txt']);
+    });
+
+    test('never launches anything on the way', () {
+      // `canOpen` must not reach the launch seam at all. If it ever did, asking
+      // a question would start an application.
+      var launched = false;
+      MacosUrlLauncherBackend(
+        openUrl: (_) {
+          launched = true;
+          return MacOpenOutcome.opened;
+        },
+        canOpenUrl: (_) => true,
+      ).canOpen(url);
+
+      expect(launched, isFalse);
     });
   });
 }

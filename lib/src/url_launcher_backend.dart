@@ -4,6 +4,15 @@
 /// the OS is asked, never in *what operations exist*. A backend reports an
 /// ordinary "nothing is registered to open this" as `false` and every other
 /// failure by throwing, so the facade above it can delegate unchanged.
+///
+/// {@template ffi_url_launcher.platform_fault}
+/// Raises a `StateError` if this platform's own system libraries cannot be
+/// reached — on macOS, AppKit loading without the Objective-C runtime then
+/// knowing `NSWorkspace`. That is an environment fault rather than anything a
+/// caller did, and it fails loudly on purpose: messaging a class that did not
+/// resolve returns `NO` silently, which is indistinguishable from a real
+/// negative answer (`docs/agents/lessons.md` #9).
+/// {@endtemplate}
 abstract interface class UrlLauncherBackend {
   /// Hands [url] to the operating system's registered handler.
   ///
@@ -29,6 +38,8 @@ abstract interface class UrlLauncherBackend {
   /// (`shell:` has no key, measured). **Call [canOpen] yourself when the answer
   /// matters**; that is the question it exists to answer, and it is the only
   /// reliable one on Windows.
+  ///
+  /// {@macro ffi_url_launcher.platform_fault}
   /// {@endtemplate}
   bool launch(Uri url);
 
@@ -53,6 +64,8 @@ abstract interface class UrlLauncherBackend {
   ///
   /// It is the strongest answer the OS offers without launching anything, and
   /// it has no side effects.
+  ///
+  /// {@macro ffi_url_launcher.platform_fault}
   /// {@endtemplate}
   bool canOpen(Uri url);
 }

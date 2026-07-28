@@ -128,3 +128,15 @@ Contradicted tests: none.
   path cannot: an unregistered scheme comes back as success. Reading the
   handler registry is what makes (C) answerable at all there, which is why it is
   a separate operation rather than something `launch` could report.
+
+  **(C) is now answered on macOS too (#5), and it is not the same question.**
+  Windows reads a per-**scheme** registry key; macOS asks LaunchServices
+  (`URLForApplicationToOpenURL:`) which application would open **this exact
+  URL**. Same signature, same meaning to a caller, genuinely different lookups —
+  which is why the seam was named `canOpen(Uri)` rather than
+  `schemeRegistered(String)`. The visible consequence: a `file:` URL is answered
+  by its *extension's* handler on macOS, while Windows answers `true`
+  unconditionally because `HKCR\file` always carries `URL Protocol`. Neither is
+  wrong; (C) is a question about *this system*, and the two systems have
+  different registries. Callers are told (C) means "something claims this", not
+  "opening will succeed" — and that phrasing already covers the divergence.

@@ -9,9 +9,11 @@ Initial slice — Windows and macOS launch.
   `objc_msgSend` declared per call signature and an autorelease pool around every
   launch so a runloop-less CLI does not accumulate objects. No `package:objective_c`
   and no build hooks, so `dart compile exe` still works. Unlike Windows, macOS
-  reports `false` **honestly** — `NSWorkspace` returns `NO`, with no window, for a
-  URL nothing can open. `UrlLaunchException.platformCode` is `null` there, since
-  `NSWorkspace.open` answers a bare `BOOL`.
+  reports `false` **honestly** — `NSWorkspace` returns `NO` for a URL nothing can
+  open, where `ShellExecuteW` reports success. It can still put the system's
+  "there is no application set to open the URL" panel on screen while doing so,
+  which is what `canLaunchUrl` is for. `UrlLaunchException.platformCode` is
+  `null` there, since `NSWorkspace.open` answers a bare `BOOL`.
 - `UrlLauncher.forOperatingSystem(String)` resolves a backend as a pure function
   of the platform name, so behaviour on a platform you are not running on can be
   asserted from any host.
@@ -35,6 +37,13 @@ Initial slice — Windows and macOS launch.
   **`file:` is not blocked** — it is a supported desktop feature, so
   `file:///C:/…/calc.exe` still executes. The README lists what is and is not
   blocked side by side.
+- **`canLaunchUrl` on macOS**, through
+  `[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]` — the current
+  API, not the `LSCopyDefaultApplicationURLForURL` deprecated in macOS 12. It
+  looks up and opens nothing. Note the platforms ask genuinely different
+  questions under one signature: Windows asks whether the *scheme* is
+  registered, macOS which application would open *that exact URL*. They agree
+  for `https:` and custom app schemes, and visibly differ for `file:`.
 - `canLaunchUrl(Uri)` / `canLaunchUrlSync(Uri)` answer whether anything on the
   system is registered to open a URL, by reading `HKEY_CLASSES_ROOT` rather than
   asking the shell to try. On Windows the launch path cannot answer this at all
@@ -47,8 +56,5 @@ Initial slice — Windows and macOS launch.
 - The only runtime dependency is `ffi`, and there are no build hooks — a
   consumer can still `dart compile exe`.
 
-Not yet implemented: `canLaunchUrl` on macOS — it throws `UnimplementedError`
-there for now (the handler lookup, `URLForApplicationToOpenURL:`, needs its own
-measurement; a probe returned `nil` even for `https:`). See the caveat on
-`launchUrl`'s return value in the README — on Windows 11 an unregistered scheme
-reports success, which is why `canLaunchUrl` exists.
+See the caveat on `launchUrl`'s return value in the README — on Windows 11 an
+unregistered scheme reports success, which is why `canLaunchUrl` exists.

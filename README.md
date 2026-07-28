@@ -6,11 +6,9 @@ the operating system directly through `dart:ffi`.
 Pure Dart. No Flutter dependency, no native sources to compile, and **no build
 hooks** — so a consumer can still `dart compile exe` into a single executable.
 
-> **Status: early. Windows and macOS launch; `canLaunchUrl` is Windows-only so
-> far.** `launchUrl` opens a URL on both platforms. Asking *whether* a handler
-> exists (`canLaunchUrl`) is implemented on Windows and lands on macOS next —
-> until then it throws `UnimplementedError` on macOS. Any platform without a
-> backend raises `UnsupportedError` that names the platform.
+> **Status: early, and now symmetric.** `launchUrl` and `canLaunchUrl` both work
+> on Windows and macOS, with the same signatures and the same meaning. Any
+> platform without a backend raises `UnsupportedError` that names it.
 
 ## Usage
 
@@ -127,11 +125,21 @@ await launchUrl(uri, allowUnsafe: true);
 
 | | `launchUrl` | `canLaunchUrl` |
 |---|---|---|
-| Windows 10+ | ✅ `ShellExecuteW` | ✅ `HKEY_CLASSES_ROOT` |
-| macOS 10.14+ | ✅ `NSWorkspace` | ⏳ next (`UnimplementedError` for now) |
+| Windows 10+ | ✅ `ShellExecuteW` | ✅ `HKEY_CLASSES_ROOT` (per **scheme**) |
+| macOS 10.14+ | ✅ `NSWorkspace` | ✅ `URLForApplicationToOpenURL:` (per **URL**) |
 | anything else | `UnsupportedError` | `UnsupportedError` |
 
-Two platform details worth knowing before they surprise you:
+**`canLaunchUrl` asks a slightly different question on each platform**, because
+the two systems keep different registries. Windows asks whether the *scheme* has
+a registered handler; macOS asks which application would open *that exact URL*.
+For `https:` or a custom app scheme they agree. Where they visibly differ is
+`file:` — Windows answers `true` for any `file:` URL (scheme registration and
+file-extension association are separate layers there), while macOS answers based
+on whether something handles that file's type. Both are truthfully answering
+"does anything on **this** system claim this", which is all `canLaunchUrl` ever
+promises.
+
+Three more platform details worth knowing before they surprise you:
 
 - **`UrlLaunchException.platformCode` is `null` on macOS.** `NSWorkspace.open`
   answers a bare `BOOL` with no code to carry, and a fabricated one would be
@@ -139,6 +147,11 @@ Two platform details worth knowing before they surprise you:
 - **The shape check (see [Security](#security)) is cross-platform.** It runs on
   the `Uri` before either OS is touched, so a drive-letter or schemeless path is
   refused identically on macOS and Windows.
+- **`canLaunchUrl` opens nothing; `launchUrl` can put a window on screen even
+  when nothing opens.** On macOS, launching a scheme nothing handles returns
+  `false` *and* raises the system panel "there is no application set to open the
+  URL" (measured). Asking first is what keeps that away from your user, and it
+  is a large part of why the two are separate calls.
 
 ## Prior art
 

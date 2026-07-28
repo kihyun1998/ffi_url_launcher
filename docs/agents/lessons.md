@@ -366,7 +366,13 @@ recorded twice already, in `theflow.md` and in ticket 03.
 
 ---
 
-## #8 — macOS is honest where Windows lied, so its failure-half is CI-safe — Steps 1, 4
+## #8 — macOS is honest where Windows lied — Steps 1, 4
+
+> ⚠ **Two claims in the original of this entry were wrong, and #9 is the entry
+> that caught them.** Both came from one probe that never loaded AppKit. The
+> corrections are inline below, struck where they stood. What survives — that
+> `NSWorkspace.open` answers `NO` honestly — was re-measured with the framework
+> genuinely mapped in and holds.
 
 **Rule it proves:** to pin a runtime fact, instrument a probe rather than
 assume the reference's model holds; and the CI-safe failure-half input is chosen
@@ -380,17 +386,38 @@ It is not. A probe against the real Objective-C runtime, AppKit and
 screen watched:
 
 ```
-[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"zzznotreal-ffiurllauncher://x"]] -> NO,  no window
-[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"file:///zzz-does-not-exist.zzzq"]]  -> NO,  no window
+[[NSWorkspace sharedWorkspace] openURL:@"zzznotreal-ffiurllauncher://x"] -> NO,  no window   <- WRONG, see below
+[[NSWorkspace sharedWorkspace] openURL:@"file:///zzz-does-not-exist.zzzq"] -> NO,  no window
 ```
 
-**`NSWorkspace.open` returns `NO` honestly and opens nothing** for both a scheme
-nothing handles and a `file:` URL for a missing file. So unlike Windows — where
-the launch-path integration test must target a missing *path* and the scheme
-case stays skipped because it pops a picker — macOS can assert *both* an
-unregistered scheme and a missing file directly in CI. This is the macOS
-counterpart of the "path that does not exist returns 2, no UI" proof: same role,
-reached by a different measured fact.
+⚠ **The first row is what #9 falsified twice over.** `NSWorkspace` was `nil` in
+that probe, so nothing was ever asked and nothing could have appeared; and when
+the question was genuinely put, that input **does** raise a panel. The second
+row re-measured true.
+
+**`NSWorkspace.open` returns `NO` honestly** — this half is right, and was
+re-measured with AppKit actually loaded.
+
+> ⚠ **Correction (#9).** The claim that it "opens nothing" for *both* inputs,
+> and therefore that macOS "can assert both an unregistered scheme and a missing
+> file directly in CI", is **false**. Re-measured with the screen watched and
+> each call isolated:
+>
+> | input | returns | on screen |
+> |---|---|---|
+> | `file:///zzz-…-does-not-exist.zzzq` | `NO` | nothing |
+> | `zzznotreal-ffiurllauncher://x` | `NO` | **a modal panel** — *"there is no application set to open the URL"*, with App Store / Choose Application / Cancel |
+>
+> So macOS is **not** the exception here: the CI-safe input is the same on both
+> platforms — a target that does not exist, never a scheme nothing is registered
+> for. The original probe saw no panel because `NSWorkspace` was nil and no
+> shell hand-off ever happened. `ns_workspace_integration_test.dart` asserted
+> the scheme input live for one commit; it is now skipped and documented, like
+> its Windows twin.
+
+What is genuinely different from Windows is only the **return value's honesty**:
+there an unregistered scheme answers *success* (42), here it answers `NO`. The
+UI hazard is common to both.
 
 The asymmetry is worth stating plainly because it inverts the package's own
 recurring hazard: on Windows every cheap answer over-promises, so `false` from
@@ -406,15 +433,16 @@ that.
   input, which is exactly why the backend's `openUrl` seam is injectable — the
   fake is the only way to exercise that arm, and a machine will not produce it
   on demand.
-- **`[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]` returned `nil`
-  for everything — including `https://dart.dev` and `mailto:`.** That is the API
-  #5 (`canLaunchUrl` on macOS) is built on, and the reference uses it
-  (`urlForApplication(toOpen:) != nil`). A `nil` for `https:` on a machine that
-  obviously has a browser means #5 is **not** a quick add: it needs its own
-  measurement — entitlements, a deprecated-in-12 replacement, or a call detail —
-  before it can answer honestly. Recorded here so #5 starts from the measurement,
-  not from the reference's one-liner. This is why #4 stubs `canOpen` with
-  `UnimplementedError` rather than wiring a half-working lookup.
+- ~~**`[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]` returned
+  `nil` for everything — including `https://dart.dev` and `mailto:`**, so #5 is
+  not a quick add and needs its own measurement.~~
+  > ⚠ **Withdrawn (#9). This was the probe's nil `NSWorkspace`, not the API.**
+  > With AppKit actually loaded, the same call through the same FFI returns
+  > `/Applications/Google Chrome.app` for `https:`, `Mail.app` for `mailto:`,
+  > `TextEdit.app` for `file:`, and `nil` only for a scheme nothing handles —
+  > matching Swift exactly. The API was never the problem, and #5 was
+  > straightforward. The `UnimplementedError` stub #4 shipped was the right call
+  > for the wrong reason: it deferred work on evidence that did not exist.
 
 **Measurement caveat, carried from #4.** The "no window" observation was made
 under `dart run`. On Windows the picker differed between `dart run` and
@@ -429,3 +457,94 @@ whether a `NO` is silent or pops UI — that is a platform behaviour, not a line
 code. Only running it says so, which is the same shape as #4.
 
 ---
+
+## #9 — A probe measured a class that was never loaded, and negative-only assertions could not have told — Steps 1, 4, 5
+
+**Rule it proves:** a cheap **`no`** is as dangerous as a cheap `yes` — this
+package's recurring hazard runs in both directions. And: a test suite made
+entirely of negative assertions cannot tell a real negative from a question
+nobody was asked.
+
+Setting out to build #5, the first job was to explain #8's claim that
+`URLForApplicationToOpenURL:` answered `nil` even for `https:`. The cross-reader
+settled it in one run — the **same question in Swift**, which is a different
+reader by theflow Step 4's rule:
+
+```
+NSWorkspace.shared.urlForApplication(toOpen:)      # Swift
+  https://dart.dev  -> /Applications/Google Chrome.app
+  mailto:a@b.com    -> /System/Applications/Mail.app
+  file:///etc/hosts -> /System/Applications/TextEdit.app
+  zzznotreal://x    -> NIL
+```
+
+The API was perfect. Our FFI was not. The cause, found by measuring both ways in
+one process:
+
+```
+BEFORE loading AppKit:  objc_getClass("NSWorkspace") = NULLPTR
+AFTER  loading AppKit:  objc_getClass("NSWorkspace") = 0x1f4440580
+```
+
+The #4 probe declared `final appkit = DynamicLibrary.open('…/AppKit');` and
+**never referenced it**. Dart top-level finals are lazy, so AppKit was never
+mapped in, so the runtime had never heard of `NSWorkspace` — and **messaging
+`nil` in Objective-C is not an error.** It quietly returns `nil`/`0`/`NO`. Every
+question the probe asked was answered by nobody, in the negative, and every
+answer looked exactly like a real object saying no.
+
+`NSString` and `NSURL` still worked throughout, which is what made it so
+convincing: they live in Foundation, which the Dart VM already links, so URL
+construction succeeded while the workspace calls silently returned nothing.
+
+**Why the test suite had no power here.** The shipped library was *not* broken —
+it called `ensureAppKitLoaded()`, so the suite was exercising correct code and
+was right to be green. The defect is subtler: every macOS assertion #4 shipped
+was a *negative* — `notOpened`, `notOpened`, `false` — and a nullptr class
+satisfies all of them perfectly. So the suite could not **distinguish** a loaded
+framework from an unloaded one, and would have stayed green had the load ever
+gone missing. What gave it that power was #5 adding the first **positive**
+assertion — `canOpen('https://…')` must be `true` — which no amount of silence
+satisfies. Mutation-checked: deleting the AppKit load turns 8 tests red now, and
+would have turned **zero** red before.
+
+**Cost, and what it did and did not reach.** The shipped library was always
+correct — it called `ensureAppKitLoaded()`, and the browser really opened, which
+is why the success-half manual proof passed. The damage was to the written
+record and to CI safety:
+
+- two claims in #8 stated as measured (corrected there);
+- `#4` deferred `canOpen` to a later ticket on evidence that did not exist;
+- `ns_workspace_integration_test.dart` asserted, live, an input that raises a
+  modal panel — the exact CI trap `lessons.md` #4 exists to prevent, reproduced
+  on the other platform one commit later.
+
+**What replaced it.** `ensureAppKitLoaded()` — whose only statement was an
+unused `_appKit.handle;`, flagged in review as a dead check — is gone. Classes
+now resolve through `_classInAppKit`, which calls `DynamicLibrary.open`
+**directly** (a real side-effecting call, not an unused read a compiler may
+drop) and **throws** when the lookup comes back `nullptr`. The dead check became
+the live one, in the place the bug actually was.
+
+**Verified in a compiled binary, because `dart run` could not answer it.** The
+worry that AOT might drop the load is only testable where AOT actually runs, so
+the throwaway consumer now calls the real lookup rather than merely resolving a
+backend:
+
+```
+$ dart compile exe bin/main.dart -o bin/main.exe && ./bin/main.exe
+canLaunchUrl(https://dart.dev)  = true      <- the positive; false would mean the load was dropped
+canLaunchUrl(zzznotreal://x)    = false
+```
+
+A **positive** answer out of a compiled executable is what proves the framework
+was mapped in — the same asymmetry as above, now applied to the release build.
+The `dart compile exe` gate had previously only printed a resolved backend type,
+which this bug would have sailed through.
+
+**The generalisable trap.** Any FFI whose failure mode is a valid-looking
+falsy value: `objc_msgSend` to a nil class, a `dlsym` miss behind a null-check
+that returns a default, an empty collection from an uninitialised handle. When
+the "not wired up" state and the "wired up, answer is no" state produce the same
+bytes, **only a positive assertion distinguishes them** — so every OS-facing
+layer needs at least one test that fails if the OS was never actually asked.
