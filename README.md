@@ -1,5 +1,6 @@
 # ffi_url_launcher
 
+[![pub package](https://img.shields.io/pub/v/ffi_url_launcher.svg)](https://pub.dev/packages/ffi_url_launcher)
 [![CI](https://github.com/kihyun1998/ffi_url_launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/kihyun1998/ffi_url_launcher/actions/workflows/ci.yml)
 
 Open a URL in the system's registered handler on **Windows and macOS**, calling
@@ -11,6 +12,15 @@ hooks** — so a consumer can still `dart compile exe` into a single executable.
 > **Status: early, and now symmetric.** `launchUrl` and `canLaunchUrl` both work
 > on Windows and macOS, with the same signatures and the same meaning. Any
 > platform without a backend raises `UnsupportedError` that names it.
+
+## Install
+
+```sh
+dart pub add ffi_url_launcher
+```
+
+There is no second step. No plugin to register, no `pod install`, no CMake, and
+nothing added to your build — which is the whole reason this package exists.
 
 ## Usage
 

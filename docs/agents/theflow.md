@@ -374,12 +374,29 @@ is therefore part of the mechanism, not a README nicety — a partial guard
 described as "validated" is worse than no guard, because it moves the caller's
 belief without moving their risk.
 
-**Cross-repo rules are N/A until first publish.** Nothing is published yet, so
-the SDK-floor constraint, the two-consumer signal and the report-upstream duty
-all assume consumers that cannot be seen from here. The only consumer seam is
-`example/`, in the same commit and the same gate, so a drift shows up
-immediately. **The after-merge downstream loop is N/A on the same ground.** All
-of it becomes live at the first publish.
+**Cross-repo rules are now LIVE — `0.1.0` was published to pub.dev on
+2026-07-28.** This paragraph previously read *"N/A until first publish"*, and that
+was a clearance whose validity condition has now expired. What changes:
+
+- **The SDK-floor constraint binds.** `environment: sdk: ^3.11.5` is carried down
+  to every consumer by a caret range. Raising it is a breaking change for anyone
+  on an older SDK, so it moves in a major/minor bump with the reason recorded —
+  never as a side effect of using a newer language feature.
+- **The `platforms:` block is a public claim, not documentation.** pub.dev renders
+  it, so a dependency declaring `platforms: windows:` now contradicts a statement
+  consumers can see. `tool/check_dependencies.dart` is the only gate that catches
+  it (`lessons.md` #1).
+- **The two-consumer signal and the report-upstream duty apply** — and both are
+  unobservable from inside this repo, which is the point: report a local guard
+  upstream even when the fix here was correct, because that report is what lets
+  upstream see a pattern one consumer never can.
+- **The after-merge downstream loop is live.** Derive the consumer list at that
+  moment by grepping sibling manifests for this package's name; never store it.
+- **The `CHANGELOG` is now snapshotted per version.** Never rewrite the `0.1.0`
+  entry — pub.dev has it. Open a new version instead.
+
+`example/` remains the only *in-repo* consumer seam, in the same commit and the
+same gate, so drift there still shows up immediately.
 
 ## Step 4 — proof method per layer
 
@@ -392,7 +409,7 @@ of it becomes live at the first publish.
 | **Launch, failure half** | **Windows:** a **path that does not exist** returns 2 and opens no window — this proves the library loaded, the symbol resolved, UTF-16 marshalling survived, and the code→exception mapping fired. CI-safe. ⚠ **Not** "an unregistered scheme returns `false`": that was this doc's original claim and the measurement falsified it (`lessons.md` #4). **macOS:** a **missing `file:` URL** answers `NO` with no window — the same role, and the same *shape* of input as Windows. ⚠ **Not** an unregistered scheme: it answers `NO` too, but raises a modal panel, so it is skipped exactly as its Windows twin is (`lessons.md` #8 correction, #9). ⚠ **And a negative alone proves nothing here** — a nullptr class returns `NO` as convincingly as the real one, so the load must be pinned by a **positive** assertion in the lookup group |
 | **FFI object lifetime** (Step 5's second unconditional trigger) | **the instrument is chosen per resource kind, and proved on the resource it is watching.** A kernel object (an `HKEY`) is charged to paged pool and is invisible to RSS; an autoreleased Objective-C object is in the address space and invisible to a handle count. So: `GetProcessHandleCount` for the Windows registry handle, `ProcessInfo.currentRss` for the macOS pool. Each guard needs **three** things, not one — (i) a mutation that deletes the release and turns it red, (ii) a **positive control** proving the counter moves when the resource really leaks, since the assertion itself is a negative and `lessons.md` #9 is what a suite of negatives costs, and (iii) a ceiling **derived** from the measured signal, the measured noise, and the measured worst case, written beside the test |
 | **Launch, success half** | manual, once per backend. A browser actually appearing is the assertion, and there is no automated substitute |
-| **Consumer round-trip** | N/A until first publish. The link mechanism when it applies: `dependency_overrides: {ffi_url_launcher: {path: ../ffi_url_launcher}}` in the consumer, then the consumer's **full** suite |
+| **Consumer round-trip** | **Live since `0.1.0`.** Two forms, and they prove different things. *Pre-release:* `dependency_overrides: {ffi_url_launcher: {path: ../ffi_url_launcher}}` in the consumer, then the consumer's **full** suite — this is what `tool/compile_exe_guard.dart` automates. *Post-release:* a throwaway consumer depending on the **version range**, with no path override, so `pub get` fetches the real archive — the only thing that proves *what actually shipped* works rather than what is in the working directory. Run it once per release: `dart pub get` → `dart compile exe` → the binary must answer a question **positively** (`lessons.md` #9). Verified for `0.1.0`: `canLaunchUrlSync('https://dart.dev')` → `true`, an unregistered scheme → `false`, a drive path → `UnsafeUrlError(driveLetter)`, and exactly two resolved dependencies |
 
 **Trap — the tautological proof.** Our reader agreeing with our writer says
 nothing about whether Windows or `NSWorkspace` will accept what we produced.
