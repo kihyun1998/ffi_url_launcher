@@ -38,7 +38,7 @@ jobs:
         os: [windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The Dart SDK alone, never `flutter-action`. Installing Flutter here
       # would quietly make the package's central claim — that it is usable from
@@ -88,7 +88,7 @@ jobs:
         os: [windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dart-lang/setup-dart@v1
         with:

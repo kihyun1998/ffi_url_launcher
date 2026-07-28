@@ -22,11 +22,23 @@ void main() {
       // for all four hives on Windows 11 (26200) — `lessons.md` #6 — so no test
       // here can go red on that, and one written as if it could would be
       // claiming cover it does not have.
-      for (final scheme in ['http', 'https', 'mailto', 'file']) {
+      // **`mailto` used to be in this list** — asserted with the reason
+      // *"registered on every Windows install"* — and the first CI run on a
+      // `windows-latest` runner falsified it: a headless Server image ships no
+      // mail client, so nothing claims `mailto` there (`lessons.md` #10). It
+      // was true on the developer machine, which is exactly why it survived
+      // review.
+      //
+      // What is left is what Windows itself provides rather than what an
+      // installed application registers: `http`/`https` come with the bundled
+      // browser, and `HKCR\file` carries `URL Protocol` unconditionally — a
+      // registry-layer fact, not an app-presence one. Measured on both Windows
+      // 11 (26200) and the CI runner.
+      for (final scheme in ['http', 'https', 'file']) {
         expect(
           isSchemeRegistered(scheme),
           isTrue,
-          reason: '"$scheme" is registered on every Windows install',
+          reason: '"$scheme" is registered by Windows itself, not by an app',
         );
       }
     });

@@ -548,3 +548,48 @@ that returns a default, an empty collection from an uninitialised handle. When
 the "not wired up" state and the "wired up, answer is no" state produce the same
 bytes, **only a positive assertion distinguishes them** — so every OS-facing
 layer needs at least one test that fails if the OS was never actually asked.
+
+---
+
+## #10 — "Registered on every Windows install" was not, and CI said so on its first run — Steps 4, 7
+
+**Rule it proves:** a machine you did not configure is a different reader. An
+environment assumption that a developer machine silently satisfies is still an
+assumption, and CI is the cheapest instrument that can falsify it.
+
+The very first run of the new workflow (#6) came back with exactly one red, on
+the Windows leg:
+
+```
+test\windows\scheme_registry_test.dart: isSchemeRegistered answers true for
+schemes Windows always registers
+  Expected: true
+    Actual: <false>
+  "mailto" is registered on every Windows install
+```
+
+The test asserted `['http', 'https', 'mailto', 'file']` were all registered,
+with the reason string stating it as universal. On a `windows-latest` runner —
+a headless Windows Server image with no mail client — **nothing claims
+`mailto`**. `http`, `https` and `file` all answered `true`, so the FFI, the
+access mask and the predefined-handle spelling were all fine; the claim about
+the world was the only thing wrong.
+
+**Why it survived review.** It was true on the developer machine, and it reads
+like a fact about Windows rather than a fact about *one* Windows. The distinction
+it missed is the one the fix now turns on: `http`/`https` are registered by the
+bundled browser and `HKCR\file` carries `URL Protocol` unconditionally — those
+are properties of the OS — whereas `mailto` is registered by *an application
+someone installed*. The test was mixing the two categories under one reason
+string.
+
+**What the same run proved on purpose.** Both `dart compile exe` legs passed,
+including Windows, which is what says `canLaunchUrlSync('https://…')` answered
+`true` on a machine nobody had configured. That is the positive assertion #9
+demanded, now running somewhere other than a laptop that already worked.
+
+**The cost had CI not existed:** none of this was reachable by reasoning. Six
+slices were built and reviewed against one Windows desktop and one macOS laptop,
+and the first contact with a differently-provisioned machine found a false
+assertion in under a minute. That is the whole argument for #6, and it paid on
+run one.
