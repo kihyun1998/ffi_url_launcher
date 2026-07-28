@@ -43,6 +43,47 @@ in tests:
 UrlLauncher.forOperatingSystem('linux').launchUrlSync(url);  // throws, naming linux
 ```
 
+### In a Flutter desktop app
+
+The same calls, and **nothing else to do** — no plugin registration, no
+`podspec`, no `CMakeLists.txt`, no `flutter pub get` step that generates native
+glue. This is a plain Dart package that happens to call the OS, so a Flutter app
+consumes it exactly as a CLI does:
+
+```dart
+Future<void> _openHomepage(BuildContext context) async {
+  final url = Uri.parse('https://dart.dev');
+
+  try {
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+      return;
+    }
+    _tell(context, 'No app on this machine is registered to open that link.');
+  } on UnsafeUrlError catch (e) {
+    // The shape check refused it — see Security. Reaching this with a URL you
+    // wrote yourself means the URL is a local path, not a link.
+    _tell(context, 'That is not a link: ${e.reason.name}');
+  } on UrlLaunchException catch (e) {
+    // The OS refused. `platformCode` is the ShellExecuteW code on Windows and
+    // null on macOS, so do not put it in front of a user — log it.
+    debugPrint('launch failed: ${e.message} (code ${e.platformCode})');
+    _tell(context, 'Could not open the link.');
+  }
+}
+```
+
+Two things worth copying from that shape rather than the two-liner above:
+**`canLaunchUrl` first** (on Windows a launch cannot report failure — see below),
+and **catch the two exceptions separately**, because they mean different things to
+a user. `UnsafeUrlError` is your own input being wrong; `UrlLaunchException` is
+the machine saying no.
+
+`UnsupportedError` is deliberately *not* caught there. It means the app is
+running on a platform this package has no backend for, which is a packaging
+mistake to fix rather than a runtime condition to handle — catching it would hide
+it until a user reports it.
+
 ## What the return value means
 
 | Result | Meaning |
@@ -162,3 +203,14 @@ API, follow [`url_launcher`](https://pub.dev/packages/url_launcher) so code
 moving across does not change shape. No code was copied; its Windows and macOS
 implementations are C++ and Swift, and the marshalling a Dart port needs is
 derived separately.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+`url_launcher` is BSD-3-Clause, and this package is deliberately **not** a
+derivative of it: what was taken is the knowledge of *which* OS call to make and
+the public API's shape, neither of which is copyrightable expression. So there is
+no license obligation to inherit, and MIT is used to match this author's sibling
+packages rather than the reference. Saying so here is the honest version of
+"inspired by" — the attribution above is owed on the merits, not by the license.

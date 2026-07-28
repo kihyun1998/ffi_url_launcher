@@ -60,6 +60,12 @@ Initial slice — Windows and macOS launch.
 - `UrlLaunchException.target` names the string the OS was actually handed, and
   the message shows it — for a `file:` URL that is the decoded path rather than
   the percent-encoded form, which is what a reader can recognise.
+- **Repeated calls do not accumulate operating-system resources**, which matters
+  for a long-running app that asks `canLaunchUrl` often. Each registry read hands
+  its `HKEY` back and each macOS call drains its own autorelease pool, and both
+  are now held by tests that were watched failing when the release was removed —
+  20,000 lookups move the Windows process handle count by zero, and 50,000 macOS
+  calls move resident memory by zero.
 - The only runtime dependency is `ffi`, and there are no build hooks — a
   consumer can still `dart compile exe`. Both halves of that are now enforced by
   CI on real Windows and real macOS runners, with no Flutter installed: one

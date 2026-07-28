@@ -3,6 +3,26 @@ description: >-
   Open a URL in the system's registered handler on Windows and macOS. Pure Dart,
   with no Flutter dependency and no native sources to compile.
 version: 0.1.0
+repository: https://github.com/kihyun1998/ffi_url_launcher
+issue_tracker: https://github.com/kihyun1998/ffi_url_launcher/issues
+
+# Declared so pub.dev states the support rather than leaving a Dart CLI author to
+# infer it from the README. Matching sibling `just_font_scan`, which is the same
+# shape of package — pure-Dart FFI, Windows and macOS, no plugin.
+#
+# **This is the platform claim the dependency invariant protects.** A dependency
+# declaring `platforms: windows:` would contradict this block while leaving every
+# gate green but `tool/check_dependencies.dart` (`docs/agents/lessons.md` #1).
+platforms:
+  windows:
+  macos:
+
+topics:
+  - url-launcher
+  - ffi
+  - windows
+  - macos
+  - desktop
 
 environment:
   sdk: ^3.11.5
