@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import '../../exceptions.dart';
 import 'system32.dart';
 
 /// What a `ShellExecuteW` return value means.
@@ -74,11 +75,34 @@ String describeShellExecuteStatus(int status) => switch (status) {
 /// or none), and an authority becomes a real UNC path rather than being left
 /// as `file://server/share`.
 ///
-/// Throws [UnsupportedError] for a `file:` URL carrying a query or fragment.
+/// Raises [UrlLaunchException] for a `file:` URL carrying a query or fragment.
 /// Such a URL is not addressing a file, and letting it through only buys the
 /// caller a "file not found" that sends them looking in the wrong place.
-String shellTargetFor(Uri url) =>
-    url.scheme == 'file' ? url.toFilePath(windows: true) : url.toString();
+///
+/// **Ordinarily unreachable, and the exception type is why it matters anyway.**
+/// The shape check refuses that URL first, so this only fires when a caller
+/// passed `allowUnsafe: true`. `Uri.toFilePath` signals it with
+/// `UnsupportedError` — a type this package reserves for *"there is no backend
+/// for this operating system"* — so letting it out raw would tell a caller on a
+/// perfectly supported platform that their platform is unsupported. It is
+/// caught and re-raised as a launch failure, which is what it is: the
+/// marshalling could not produce a target. macOS reports its own equivalent —
+/// an `NSURL` that will not construct — the same way, so a caller sees one kind
+/// of answer for one kind of problem on both platforms.
+String shellTargetFor(Uri url) {
+  if (url.scheme != 'file') return url.toString();
+
+  try {
+    return url.toFilePath(windows: true);
+  } on UnsupportedError catch (error) {
+    throw UrlLaunchException(
+      url: url,
+      target: url.toString(),
+      message:
+          'this file: URL cannot be converted to a path — ${error.message}',
+    );
+  }
+}
 
 /// Asks the shell to open [target] with its registered handler.
 ///

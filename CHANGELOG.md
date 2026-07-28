@@ -50,6 +50,13 @@ Initial slice — Windows and macOS launch.
   — an unregistered scheme is reported as *success* after the shell opens its
   own app picker — so this is the only reliable check. It opens nothing, and a
   `true` means a handler is registered rather than that opening will succeed.
+- `UnsupportedError` means **"this platform has no backend"** and nothing else.
+  A `file:` URL carrying a query or fragment cannot be converted to a Windows
+  path, and `Uri.toFilePath` reports that with `UnsupportedError` — which would
+  have told a caller on Windows that Windows was unsupported. It is re-raised as
+  `UrlLaunchException` instead, matching how macOS reports an `NSURL` that will
+  not construct. Reachable only with `allowUnsafe: true`, since the shape check
+  refuses these URLs first.
 - `UrlLaunchException.target` names the string the OS was actually handed, and
   the message shows it — for a `file:` URL that is the decoded path rather than
   the percent-encoded form, which is what a reader can recognise.

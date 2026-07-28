@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'package:ffi_url_launcher/ffi_url_launcher.dart';
 import 'package:ffi_url_launcher/src/backends/windows/shell_execute.dart';
 import 'package:test/test.dart';
 
@@ -69,26 +70,53 @@ void main() {
       // A query or fragment means this is not addressing a file. Handing it to
       // the shell anyway produces "the file was not found", which sends the
       // caller looking in the wrong place.
+      //
+      // **The exception type is the assertion here**, not just the fact of
+      // throwing. `Uri.toFilePath` raises `UnsupportedError`, which this package
+      // reserves for "there is no backend for this operating system" — so
+      // letting it through would tell a caller on Windows that Windows is
+      // unsupported. Reachable only with `allowUnsafe: true`, since the shape
+      // check refuses these URLs first; ADR-0001 records why (B) reports a
+      // marshalling failure this way rather than raising a shape refusal.
       expect(
         () => shellTargetFor(Uri.parse('file:///C:/a.txt?q=1')),
         throwsA(
-          isA<UnsupportedError>().having(
-            (e) => e.message,
-            'message',
-            contains('query'),
-          ),
+          isA<UrlLaunchException>()
+              .having((e) => e.message, 'message', contains('query'))
+              .having((e) => e.platformCode, 'platformCode', isNull),
         ),
       );
       expect(
         () => shellTargetFor(Uri.parse('file:///C:/a.txt#frag')),
         throwsA(
-          isA<UnsupportedError>().having(
+          isA<UrlLaunchException>().having(
             (e) => e.message,
             'message',
             contains('fragment'),
           ),
         ),
       );
+    });
+
+    test('never lets UnsupportedError out, on any file URL shape', () {
+      // The type reservation, asserted directly. ADR-0001: `UnsupportedError`
+      // means "this platform has no backend" and nothing else, so no (B)-layer
+      // input may produce one.
+      for (final s in [
+        'file:///C:/a.txt?q=1',
+        'file:///C:/a.txt#frag',
+        'file:///C:/a.txt?q=1#frag',
+        'file:',
+        'file:///',
+      ]) {
+        try {
+          shellTargetFor(Uri.parse(s));
+        } on UnsupportedError {
+          fail('shellTargetFor("$s") leaked UnsupportedError');
+        } on UrlLaunchException {
+          // The permitted failure.
+        }
+      }
     });
   });
 }

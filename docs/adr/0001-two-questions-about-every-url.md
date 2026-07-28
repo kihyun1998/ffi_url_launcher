@@ -53,7 +53,13 @@ by the boundary rule in `CLAUDE.md`, and it is why (A) admits
   normalises to the current drive's root, which is *a* place but not one the
   caller asked for; a `file:` URL with a query has no path to extract.
 - **(A) passes, (B) transforms:** 1, 6, 7. Each denotes a target and each needs
-  a different spelling than `Uri.toString()` produces.
+  a different spelling than `Uri.toString()` produces — **on Windows**. The
+  *decisions* (allow / refuse) are cross-platform; the **conversions in the
+  table above are Windows-specific**, because they exist to work around how
+  `ShellExecuteW` reads a string. macOS hands `NSURL` the URL untouched and it
+  parses correctly, measured: `file:///tmp/%ED%95%9C%EA%B8%80%ED%8C%8C%EC%9D%BC.txt`
+  resolves to a real handler, where the same string would have to become a
+  native path first on Windows.
 - **(A) passes, trust is not our question → allow:** 8, and
   `file:///…/calc.exe`.
 
@@ -72,21 +78,44 @@ These are currently-true statements, not predictions. Flip them if the decision
 flips.
 
 - `lib/src/url_safety.dart` answers (A). It is **pure and platform-free**, so
-  every arm runs on every runner and #4 inherits it on macOS without new work.
-- `lib/src/backends/<os>/` answers (B). `shellTargetFor` is the Windows one.
-- **(A) must never become platform-specific, and (B) must never refuse.** Both
-  are checkable against the diff, and either would be a finding.
-- Because (A) runs first, `Uri.toFilePath`'s `UnsupportedError` cannot escape
-  the public API — the type is reserved for "this platform has no backend".
-- `allowUnsafe: true` skips (A) only. (B) still runs; it has nothing to opt out
-  of.
+  every arm runs on every runner, and macOS inherited it in #4 with no new code.
+- `lib/src/backends/<os>/` answers (B). `shellTargetFor` is the Windows one; on
+  macOS it is the identity, since `NSURL` parses the URL itself.
+- **(A) must never become platform-specific, and (B) must never refuse *on
+  policy grounds*.** Both are checkable against the diff, and either would be a
+  finding.
+- **(B) may still fail to marshal, and reports that as `UrlLaunchException`.**
+  This is not a refusal — it is "I could not build the string this OS needs",
+  which is the same category as the OS itself failing, and it is why both
+  platforms answer it the same way: Windows when a `file:` URL has a query or
+  fragment and cannot become a path, macOS when `NSURL` will not construct.
+  Neither raises `UnsafeUrlError` (that is (A)'s alone) and — measured, and
+  fixed after it was found to leak — neither raises `UnsupportedError`.
+- **`UnsupportedError` means "this platform has no backend" and nothing else.**
+  `Uri.toFilePath` raises it natively, so `shellTargetFor` catches and
+  re-raises; letting it out would tell a caller on a supported platform that
+  their platform is unsupported. Asserted directly in
+  `test/windows/shell_target_test.dart`.
+- `allowUnsafe: true` skips (A) only, and **(B)'s failure is exactly what it
+  exposes.** An earlier version of this record claimed (B) "has nothing to opt
+  out of", which was wrong: with (A) skipped, a `file:` URL carrying a query
+  reaches (B) and fails there. That path is the only way to reach it.
 
 ### Evidence
 
-Tests this reproduces: `test/url_safety_test.dart` in full (every (A) arm),
-`test/windows/shell_target_test.dart` in full (every (B) arm), and
-`test/url_launcher_test.dart`'s *"the shape check is wired into the facade"*
-group (the ordering).
+Tests this reproduces:
+
+| Claim | Test |
+|---|---|
+| every (A) arm | `test/url_safety_test.dart`, in full |
+| (A) is platform-free | the same file — it has no platform guard and runs on every runner |
+| every (B) arm, Windows | `test/windows/shell_target_test.dart`, in full |
+| (B) never leaks `UnsupportedError` | the same file, *"never lets UnsupportedError out"* |
+| (B) is the identity on macOS | `test/macos/macos_backend_test.dart`, *"hands NSWorkspace the URL as text, unchanged"* |
+| (B) marshalling failure is `UrlLaunchException` | `shell_target_test.dart` (Windows) and `macos_backend_test.dart`, *"throws for a URL NSURL could not construct"* |
+| the ordering — (A) before the backend | `test/url_launcher_test.dart`, *"the shape check is wired into the facade"* |
+| (C) answers without launching | `test/windows/windows_backend_test.dart` and `test/macos/macos_backend_test.dart`, *"never launches anything on the way"* |
+| (C) against the real OS | `test/macos/ns_workspace_integration_test.dart`, *"the real NSWorkspace handler lookup"* |
 
 Measured with a positive control on Windows 11 (26200) — the same input, the
 same process, the only difference being whether (A) ran:
@@ -120,8 +149,8 @@ Contradicted tests: none.
 
   | | Question | Layer | Refuses? |
   |---|---|---|---|
-  | (A) | does this denote a target? | pure, cross-platform | yes — that is its job |
-  | (B) | what string does this OS need? | per platform | never |
+  | (A) | does this denote a target? | pure, cross-platform | yes — that is its job, as `UnsafeUrlError` |
+  | (B) | what string does this OS need? | per platform | never on policy — but may fail to marshal, as `UrlLaunchException` |
   | (C) | is there anything to reach it with? | per platform | never — answers `false` |
 
   (C) is the one an OS may be unable to answer honestly. On Windows the launch
