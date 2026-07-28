@@ -81,10 +81,17 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
 ### Domain docs
 
 **Single-context** — `CONTEXT.md` plus `docs/adr/` at the repo root.
-`docs/adr/` now exists and holds **ADR-0001, "Every URL is asked two independent
-questions, in order"** — read it before changing anything between a caller's
-`Uri` and the OS call. `CONTEXT.md` does not exist yet; `/domain-modeling`
-creates it lazily. The rest of the decision trail is the issue tracker plus
+`docs/adr/` holds two records:
+
+- **ADR-0001, "Every URL is asked two independent questions, in order"** — read it
+  before changing anything between a caller's `Uri` and the OS call.
+- **ADR-0002, "Every guard is asked six questions before it is trusted"** — read
+  it before writing or changing any test that asserts an effect on the operating
+  system. Five separate incidents turned out to be one precondition of a guard
+  failing, and the fifth was one review round away from copying the fix for the
+  fourth straight back into the same defect.
+
+`CONTEXT.md` does not exist yet; `/domain-modeling` creates it lazily. The rest of the decision trail is the issue tracker plus
 `.scratch/ffi-url-launcher/issues/`.
 
 ### Issue tracker

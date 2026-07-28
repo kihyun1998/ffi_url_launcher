@@ -469,6 +469,7 @@ Everything else is gated on enumeration risk as usual.
   | Record | Status | Area it governs |
   |---|---|---|
   | [ADR-0001](../adr/0001-two-questions-about-every-url.md) | accepted | everything between a caller's `Uri` and the OS call — shape (A) and marshalling (B). Promoted from spine #8 |
+  | [ADR-0002](../adr/0002-every-guard-is-asked-six-questions.md) | accepted | **whether a guard can be trusted** — polarity, instrument, scale, threshold, mutation, stated reason. Governs every test asserting an OS-observable effect, and all six are mandatory on Step 5's second unconditional trigger. Promoted after five incidents (#6, #7, #9, #11, #13) each turned out to be one precondition failing |
 
   This list is what the filing step checks **before** proposing a spine. An
   issue in an area that already has a record is a **conformance item under that
