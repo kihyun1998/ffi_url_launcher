@@ -61,7 +61,12 @@ Initial slice — Windows and macOS launch.
   the message shows it — for a `file:` URL that is the decoded path rather than
   the percent-encoded form, which is what a reader can recognise.
 - The only runtime dependency is `ffi`, and there are no build hooks — a
-  consumer can still `dart compile exe`.
+  consumer can still `dart compile exe`. Both halves of that are now enforced by
+  CI on real Windows and real macOS runners, with no Flutter installed: one
+  guard compiles a generated consumer to a single executable and requires it to
+  answer a question *positively*, and another fails the build if the runtime
+  dependency list is anything but `ffi`. Neither guard catches the other's
+  failure mode.
 
 See the caveat on `launchUrl`'s return value in the README — on Windows 11 an
 unregistered scheme reports success, which is why `canLaunchUrl` exists.

@@ -107,6 +107,7 @@ Rows marked **planned** do not exist yet. The table is a map of where things go,
 not an inventory of what is there; without the marker it reads as the latter and
 an agent goes looking for a file that was never written.
 | `example/` | the **only in-repo consumer seam** — reaches the package through the public API only. No separate `pubspec.yaml`, so `dart analyze` covers it but `dart test` does **not** run it (see Step 7) |
+| `tool/` | the two gates no other gate expresses, as scripts so they run identically in CI and by hand: `compile_exe_guard.dart` (generates a throwaway consumer and compiles it) and `check_dependencies.dart` (the `ffi`-only invariant). Part of the package, so they need no dependency of their own |
 
 **Naming note.** The design record in `.scratch/` sketched the seam as
 `NativeUrlApi`. The family's convention is `<Domain>Backend`
@@ -437,9 +438,12 @@ opening) a spine issue.
 
 ## Step 7 — gate matrix
 
-Two runners, identical commands. Ubuntu is deliberately **not** in the matrix:
-this package supports Windows and macOS only, and a green Linux job would prove
-only that the pure logic is host-independent.
+**Automated in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)**,
+on pull requests and on pushes to `main`. Two runners, identical commands.
+Ubuntu is deliberately **not** in the matrix: this package supports Windows and
+macOS only, and a green Linux job would prove only that the pure logic is
+host-independent. `fail-fast: false`, because the two legs exercise entirely
+different backends and one failing says nothing about the other.
 
 ```
 dart pub get
@@ -448,10 +452,12 @@ dart analyze --fatal-infos
 dart test
 ```
 
-Plus a guard that no other gate can express:
+Plus **two** guards no other gate can express, one per failure mode a
+convenience dependency has:
 
 ```
-dart compile exe   # in a throwaway consumer that depends on this package
+dart run tool/compile_exe_guard.dart    # a hooks: dependency breaks consumers
+dart run tool/check_dependencies.dart   # a platforms: dependency misstates support
 ```
 
 **The consumer must call something that answers positively**, not merely import
@@ -460,12 +466,24 @@ proves the build worked; it does not prove the platform libraries load under
 AOT. Have it call `canLaunchUrlSync(Uri.parse('https://…'))` and expect `true` —
 `lessons.md` #9 is a bug that a type-printing consumer would have passed.
 
-- **Why that guard exists.** The package's central promise is that it adds no
-  build hooks. `package:objective_c` and any `hooks:`-declaring dependency would
-  break `dart compile exe` outright — *"'dart compile' does not support build
-  hooks, use 'dart build' instead"* — and the failure appears in a **consumer**,
-  never in this repo's own tests. A dependency added for convenience would pass
-  every other gate.
+- **Why the compile-exe guard exists.** The package's central promise is that it
+  adds no build hooks. `package:objective_c` and any `hooks:`-declaring
+  dependency would break `dart compile exe` outright — *"'dart compile' does not
+  support build hooks, use 'dart build' instead"* — and the failure appears in a
+  **consumer**, never in this repo's own tests. A dependency added for
+  convenience would pass every other gate.
+- **Why the dependency guard exists too, and is not redundant.** The other
+  failure mode `CLAUDE.md` names — a Windows-only dependency such as
+  `package:win32`, which makes this package claim platform support it does not
+  have — is **invisible to every gate including the compile one**. Measured:
+  adding `win32: ^5.0.0` leaves `pub get`, `format`, `analyze`, `test` and
+  `dart compile exe` all green on both runners, and only
+  `check_dependencies.dart` goes red. Two failure modes, two guards; neither
+  covers the other.
+- **The generated consumer lives in a temp directory, not in the repo.**
+  Committing it would add a second `pubspec.yaml` and create exactly the
+  out-of-workspace member this section says does not exist here — `dart test` at
+  the root would not run it.
 - **The blind spot here is per-runner, not per-member.** The Windows runner is the
   *only* one that executes a registry call or `ShellExecuteW`; the macOS runner is
   the *only* one that touches `NSWorkspace`. Never read a green matrix as "the

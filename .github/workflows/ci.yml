@@ -1,0 +1,111 @@
+name: CI
+
+# Runs on the two operating systems this package supports, and on no others.
+#
+# **Ubuntu is deliberately absent.** This package supports Windows and macOS
+# only; a green Linux job would prove that the pure logic is host-independent,
+# which no failure mode of this package needs proving. Every OS-facing layer —
+# `ShellExecuteW`, the registry read, `NSWorkspace` — is unreachable there, so a
+# third leg would buy confidence it cannot support.
+#
+# **The blind spot is per-runner.** The Windows runner is the only one that
+# executes a registry call or `ShellExecuteW`; the macOS runner is the only one
+# that touches `NSWorkspace`. A green matrix means "the call was shaped as
+# intended on each" — never "the backend works". The success half of launching
+# (a browser actually appearing) has no automated form and stays a manual check,
+# once per backend. That is a known gap, not a covered case.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes the older run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Both legs always run. Windows failing tells you nothing about macOS —
+      # they exercise entirely different backends — so cancelling the other on
+      # first failure would throw away the half of the answer still owed.
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Dart SDK alone, never `flutter-action`. Installing Flutter here
+      # would quietly make the package's central claim — that it is usable from
+      # a pure Dart CLI with no Flutter anywhere — untested by the very thing
+      # meant to test it.
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      # Every gate is its own step, so each reports its own status and none is
+      # piped. `dart test | tail -1 && …` always succeeds: a pipeline's exit
+      # status is the last command's, and `tail` never fails.
+      - name: dart pub get
+        run: dart pub get
+
+      # Must follow `pub get`: `dart format` reads the language version out of
+      # `package_config.json`, so on a clean checkout it disagrees with a local
+      # run until dependencies are resolved.
+      - name: dart format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: dart analyze
+        run: dart analyze --fatal-infos
+
+      # Includes the real-FFI integration tests. Every input they hand to a
+      # launch path is measured UI-free — a target that does not exist. The
+      # inputs that raise a window (an unregistered scheme, on **both**
+      # platforms) are skipped in the test files themselves, with the
+      # measurement recorded beside them; see docs/agents/lessons.md #4 and #8.
+      # Nothing here opens a browser.
+      - name: dart test
+        run: dart test
+
+      # Guards the "ffi only" invariant. Its sibling below cannot see a
+      # Windows-only dependency: measured, adding `win32` leaves
+      # `dart compile exe` perfectly green while misstating what platforms this
+      # package supports.
+      - name: dependency invariant
+        run: dart run tool/check_dependencies.dart
+
+  compile-exe:
+    name: dart compile exe (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      # Needed before `dart run`: the script is part of this package, so its
+      # package config has to exist.
+      - name: dart pub get
+        run: dart pub get
+
+      # The gate no other gate can express. A dependency declaring `hooks:`
+      # breaks `dart compile exe` for every consumer — and the failure appears
+      # one repo downstream, never in this repo's own tests, so it passes
+      # everything above (docs/agents/lessons.md #1).
+      #
+      # The consumer is generated into a temp directory rather than committed:
+      # a second pubspec.yaml inside this repo would create an out-of-workspace
+      # member that `dart test` at the root would not run.
+      - name: consumer can still compile to a single executable
+        run: dart run tool/compile_exe_guard.dart

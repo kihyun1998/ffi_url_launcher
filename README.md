@@ -1,5 +1,7 @@
 # ffi_url_launcher
 
+[![CI](https://github.com/kihyun1998/ffi_url_launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/kihyun1998/ffi_url_launcher/actions/workflows/ci.yml)
+
 Open a URL in the system's registered handler on **Windows and macOS**, calling
 the operating system directly through `dart:ffi`.
 
