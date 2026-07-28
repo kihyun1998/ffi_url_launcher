@@ -1,3 +1,4 @@
+import 'backends/macos/macos_backend.dart';
 import 'backends/windows/windows_backend.dart';
 import 'url_launcher_backend.dart';
 
@@ -29,6 +30,9 @@ typedef PlatformSupport = ({
 /// [resolve]: url_launcher_platform.dart
 const Map<String, PlatformSupport> supportedPlatforms = {
   'windows': (displayName: 'Windows', create: _windows),
+  'macos': (displayName: 'macOS', create: _macos),
 };
 
 UrlLauncherBackend _windows() => const WindowsUrlLauncherBackend();
+
+UrlLauncherBackend _macos() => const MacosUrlLauncherBackend();

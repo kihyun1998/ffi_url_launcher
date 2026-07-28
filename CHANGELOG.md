@@ -1,9 +1,17 @@
 ## 0.1.0
 
-Initial slice — Windows launch.
+Initial slice — Windows and macOS launch.
 
 - `launchUrl(Uri)` / `launchUrlSync(Uri)` open a URL in the system's registered
   handler on Windows, through hand-written `shell32` bindings.
+- **macOS launch**, through hand-written Objective-C-runtime bindings
+  (`libobjc` + AppKit): `[[NSWorkspace sharedWorkspace] openURL:]`, with each
+  `objc_msgSend` declared per call signature and an autorelease pool around every
+  launch so a runloop-less CLI does not accumulate objects. No `package:objective_c`
+  and no build hooks, so `dart compile exe` still works. Unlike Windows, macOS
+  reports `false` **honestly** — `NSWorkspace` returns `NO`, with no window, for a
+  URL nothing can open. `UrlLaunchException.platformCode` is `null` there, since
+  `NSWorkspace.open` answers a bare `BOOL`.
 - `UrlLauncher.forOperatingSystem(String)` resolves a backend as a pure function
   of the platform name, so behaviour on a platform you are not running on can be
   asserted from any host.
@@ -39,6 +47,8 @@ Initial slice — Windows launch.
 - The only runtime dependency is `ffi`, and there are no build hooks — a
   consumer can still `dart compile exe`.
 
-Not yet implemented: macOS. See the caveat on `launchUrl`'s return value in the
-README — on Windows 11 an unregistered scheme reports success, which is why
-`canLaunchUrl` exists.
+Not yet implemented: `canLaunchUrl` on macOS — it throws `UnimplementedError`
+there for now (the handler lookup, `URLForApplicationToOpenURL:`, needs its own
+measurement; a probe returned `nil` even for `https:`). See the caveat on
+`launchUrl`'s return value in the README — on Windows 11 an unregistered scheme
+reports success, which is why `canLaunchUrl` exists.

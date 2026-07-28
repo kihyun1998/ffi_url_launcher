@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'package:ffi_url_launcher/src/backends/macos/macos_backend.dart';
 import 'package:ffi_url_launcher/src/backends/unsupported_backend.dart';
 import 'package:ffi_url_launcher/src/backends/windows/windows_backend.dart';
 import 'package:ffi_url_launcher/src/url_launcher_platform.dart';
@@ -15,6 +16,16 @@ void main() {
       expect(
         resolveUrlLauncherBackend('windows'),
         isA<WindowsUrlLauncherBackend>(),
+      );
+    });
+
+    test('resolves macOS to the macOS backend', () {
+      // Resolution is a pure string lookup — this arm can be asserted from a
+      // Windows or Linux host, and the macOS backend is only *constructed*
+      // here, not called, so no dylib is opened off-platform.
+      expect(
+        resolveUrlLauncherBackend('macos'),
+        isA<MacosUrlLauncherBackend>(),
       );
     });
 

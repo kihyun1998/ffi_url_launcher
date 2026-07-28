@@ -6,9 +6,11 @@ the operating system directly through `dart:ffi`.
 Pure Dart. No Flutter dependency, no native sources to compile, and **no build
 hooks** — so a consumer can still `dart compile exe` into a single executable.
 
-> **Status: early. Windows only so far.** macOS is designed but not yet wired;
-> calling this on any platform without a backend raises `UnsupportedError` that
-> names the platform.
+> **Status: early. Windows and macOS launch; `canLaunchUrl` is Windows-only so
+> far.** `launchUrl` opens a URL on both platforms. Asking *whether* a handler
+> exists (`canLaunchUrl`) is implemented on Windows and lands on macOS next —
+> until then it throws `UnimplementedError` on macOS. Any platform without a
+> backend raises `UnsupportedError` that names the platform.
 
 ## Usage
 
@@ -46,7 +48,7 @@ UrlLauncher.forOperatingSystem('linux').launchUrlSync(url);  // throws, naming l
 | Result | Meaning |
 |---|---|
 | `true` | the handler was **started** |
-| `false` | the operating system reported that nothing is registered to open this — **on Windows this is effectively unreachable for a URL scheme; do not branch on it there.** Use `canLaunchUrl` instead |
+| `false` | the operating system reported that nothing is registered to open this. **On Windows this is effectively unreachable for a URL scheme; do not branch on it there** — use `canLaunchUrl`. **On macOS it is honest and reachable:** `NSWorkspace` returns `NO` for a URL nothing can open, with no window |
 | throws `UnsafeUrlError` | the URL's shape says it is a local path — see [Security](#security) |
 | throws `UrlLaunchException` | the operating system refused for some other reason; `platformCode` carries its code on Windows, and `target` names the string it was actually given |
 | throws `UnsupportedError` | this platform has no backend |
@@ -123,11 +125,20 @@ await launchUrl(uri, allowUnsafe: true);
 
 ## Platform support
 
-| | Status |
-|---|---|
-| Windows 10+ | implemented (`ShellExecuteW`) |
-| macOS 10.14+ | designed, not yet wired (`NSWorkspace`) |
-| anything else | `UnsupportedError` |
+| | `launchUrl` | `canLaunchUrl` |
+|---|---|---|
+| Windows 10+ | ✅ `ShellExecuteW` | ✅ `HKEY_CLASSES_ROOT` |
+| macOS 10.14+ | ✅ `NSWorkspace` | ⏳ next (`UnimplementedError` for now) |
+| anything else | `UnsupportedError` | `UnsupportedError` |
+
+Two platform details worth knowing before they surprise you:
+
+- **`UrlLaunchException.platformCode` is `null` on macOS.** `NSWorkspace.open`
+  answers a bare `BOOL` with no code to carry, and a fabricated one would be
+  worse than its absence. On Windows it carries the `ShellExecuteW` error code.
+- **The shape check (see [Security](#security)) is cross-platform.** It runs on
+  the `Uri` before either OS is touched, so a drive-letter or schemeless path is
+  refused identically on macOS and Windows.
 
 ## Prior art
 

@@ -100,8 +100,13 @@ Contradicted tests: none.
 
 ### What this does not cover
 
-- **macOS.** `NSWorkspace` takes an `NSURL`, not a string, so (B) may be a
-  no-op there or may not exist. (A) is unchanged either way. Unmeasured until #4.
+- **macOS — now measured (#4).** (B) is a **no-op** there: `NSWorkspace` is
+  handed `url.toString()`, `[NSURL URLWithString:]` parses it, and there is no
+  per-platform rewriting the way Windows needs for `file:` URLs. (A) is inherited
+  unchanged and runs on every macOS launch, exactly as the "pure and
+  platform-free" consequence above promised — no new code. The one macOS-specific
+  outcome is `MacOpenOutcome.invalidUrl` (an `NSURL` that would not construct),
+  which throws rather than refusing, so it lives in the (B) layer, not (A).
 - **Trust policy.** Deliberately outside both questions.
 - **`canLaunchUrl` — a third question, and #3 has now answered it.** *Is there
   anything to reach the target with?* It is genuinely separate from (A) and (B),

@@ -365,3 +365,67 @@ per-URL / Windows per-scheme asymmetry the pass flagged as unrecorded is
 recorded twice already, in `theflow.md` and in ticket 03.
 
 ---
+
+## #8 — macOS is honest where Windows lied, so its failure-half is CI-safe — Steps 1, 4
+
+**Rule it proves:** to pin a runtime fact, instrument a probe rather than
+assume the reference's model holds; and the CI-safe failure-half input is chosen
+by measuring what is UI-free, never by what "looks inert".
+
+Windows' launch path cannot answer "can this open" — an unregistered scheme
+comes back as 42, success, sometimes with a dialog (#4). The natural assumption
+was that macOS is the same and its integration test would need the same care.
+It is not. A probe against the real Objective-C runtime, AppKit and
+`NSWorkspace` on macOS 14.5 (arm64), each `open` re-run on its own with the
+screen watched:
+
+```
+[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"zzznotreal-ffiurllauncher://x"]] -> NO,  no window
+[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"file:///zzz-does-not-exist.zzzq"]]  -> NO,  no window
+```
+
+**`NSWorkspace.open` returns `NO` honestly and opens nothing** for both a scheme
+nothing handles and a `file:` URL for a missing file. So unlike Windows — where
+the launch-path integration test must target a missing *path* and the scheme
+case stays skipped because it pops a picker — macOS can assert *both* an
+unregistered scheme and a missing file directly in CI. This is the macOS
+counterpart of the "path that does not exist returns 2, no UI" proof: same role,
+reached by a different measured fact.
+
+The asymmetry is worth stating plainly because it inverts the package's own
+recurring hazard: on Windows every cheap answer over-promises, so `false` from
+`launch` is effectively unreachable for a scheme; on macOS `NSWorkspace.open`'s
+`false` is reachable and means what it says. `MacOpenOutcome.notOpened` carries
+that.
+
+**Two facts measured in the same probe, kept because they are not obvious:**
+
+- **`[NSURL URLWithString:]` is lenient.** It returned a non-nil `NSURL` for the
+  empty string, for `"not a url with spaces"`, and for every scheme tried. So
+  the `invalidUrl` branch of `MacOpenOutcome` is nearly unreachable from real
+  input, which is exactly why the backend's `openUrl` seam is injectable — the
+  fake is the only way to exercise that arm, and a machine will not produce it
+  on demand.
+- **`[[NSWorkspace sharedWorkspace] URLForApplicationToOpenURL:]` returned `nil`
+  for everything — including `https://dart.dev` and `mailto:`.** That is the API
+  #5 (`canLaunchUrl` on macOS) is built on, and the reference uses it
+  (`urlForApplication(toOpen:) != nil`). A `nil` for `https:` on a machine that
+  obviously has a browser means #5 is **not** a quick add: it needs its own
+  measurement — entitlements, a deprecated-in-12 replacement, or a call detail —
+  before it can answer honestly. Recorded here so #5 starts from the measurement,
+  not from the reference's one-liner. This is why #4 stubs `canOpen` with
+  `UnimplementedError` rather than wiring a half-working lookup.
+
+**Measurement caveat, carried from #4.** The "no window" observation was made
+under `dart run`. On Windows the picker differed between `dart run` and
+`dart test` for the same input, so the same caveat is written into the macOS
+integration test. The mechanism differs, though: macOS returns a plain `NO` with
+no shell hand-off, so a harness-dependent window is not expected the way it was
+on Windows. Re-measure on a new macOS major before trusting it blindly.
+
+**Why reading the reference could not settle it.** The Swift plugin maps
+`workspace.open(nsurl)` straight to its boolean result and says nothing about
+whether a `NO` is silent or pops UI — that is a platform behaviour, not a line of
+code. Only running it says so, which is the same shape as #4.
+
+---
