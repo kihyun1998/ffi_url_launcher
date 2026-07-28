@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   gates:
-    name: gates (${{ matrix.os }})
+    name: gates (${{ matrix.os }}, Dart ${{ matrix.sdk }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Both legs always run. Windows failing tells you nothing about macOS —
@@ -36,6 +36,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
+        # **The floor leg is what keeps `environment.sdk` honest.** That
+        # constraint is carried down to every consumer by a caret range, so a
+        # declared floor nothing executes is a claim rather than a guarantee —
+        # and the way it rots is silent: someone uses a newer language feature,
+        # every green stays green, and a consumer on the declared minimum
+        # discovers it. `3.7.0` is where `package:ffi` stops, so it is the
+        # widest range the single runtime dependency permits.
+        #
+        # Raising this number to fix a red build **is** lowering the promise;
+        # raise `environment.sdk` in the same commit or not at all.
+        sdk: [stable, "3.7.0"]
 
     steps:
       - uses: actions/checkout@v5
@@ -46,7 +57,7 @@ jobs:
       # meant to test it.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
 
       # Every gate is its own step, so each reports its own status and none is
       # piped. `dart test | tail -1 && …` always succeeds: a pipeline's exit
@@ -80,19 +91,26 @@ jobs:
         run: dart run tool/check_dependencies.dart
 
   compile-exe:
-    name: dart compile exe (${{ matrix.os }})
+    name: dart compile exe (${{ matrix.os }}, Dart ${{ matrix.sdk }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
+        # The floor matters most *here*. This job is the only one that builds a
+        # consumer, and `environment.sdk` is a promise made to consumers — so a
+        # floor that has never compiled one is the least-tested claim in the
+        # package. The generated consumer inherits the constraint from this
+        # package's own pubspec rather than naming one, so this leg fails if the
+        # two ever disagree.
+        sdk: [stable, "3.7.0"]
 
     steps:
       - uses: actions/checkout@v5
 
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
 
       # Needed before `dart run`: the script is part of this package, so its
       # package config has to exist.

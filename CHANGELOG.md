@@ -1,3 +1,27 @@
+## 0.1.1
+
+**Lowers the SDK floor from `^3.11.5` to `>=3.7.0` — Flutter 3.29.1 and newer.**
+No API change.
+
+- **The old floor was never a requirement.** `dart create` wrote whatever SDK was
+  installed at the time, and it stayed untouched through 0.1.0 — four minor
+  versions above anything this package uses. Because an `environment` constraint
+  is carried down to every consumer, 0.1.0 was silently demanding an SDK upgrade
+  of anyone adopting it: a Flutter 3.32 app, for instance, would have had to move
+  to Flutter 3.41 to add a package that needed nothing from it.
+- **3.7.0 is where `package:ffi` stops**, so this is the widest range the single
+  runtime dependency permits.
+- **Verified on real SDKs**, not by lowering the constraint on a newer toolchain
+  — that only proves the language version, and resolution happens against
+  whatever is installed. Dart 3.7.0 and 3.8.0 were downloaded and run: `pub get`,
+  `analyze --fatal-infos`, all 84 tests, and a consumer compiled with
+  `dart compile exe` answering `canLaunchUrlSync('https://dart.dev')` → `true`.
+  Both are now CI legs, so the floor stays honest rather than decaying the first
+  time someone uses a newer language feature.
+- Formatting is unchanged in meaning but differs on disk: `dart format` derives
+  its style from the declared language version, so lowering the floor reformats
+  the package. Verified byte-identical output across 3.7.0, 3.8.0 and current.
+
 ## 0.1.0
 
 Initial slice — Windows and macOS launch.

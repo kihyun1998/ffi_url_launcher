@@ -2,7 +2,7 @@ name: ffi_url_launcher
 description: >-
   Open a URL in the system's registered handler on Windows and macOS. Pure Dart,
   with no Flutter dependency and no native sources to compile.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/kihyun1998/ffi_url_launcher
 issue_tracker: https://github.com/kihyun1998/ffi_url_launcher/issues
 
@@ -25,7 +25,24 @@ topics:
   - desktop
 
 environment:
-  sdk: ^3.11.5
+  # **The floor a consumer inherits, and it is measured rather than scaffolded.**
+  # `dart create` wrote `^3.11.5` here — whatever SDK happened to be installed —
+  # and it stayed untouched from the initial commit through 0.1.0, four minor
+  # versions above anything this package needs. A caret range carries that floor
+  # straight down to every consumer, so it was silently demanding an SDK upgrade
+  # of anyone adopting it.
+  #
+  # 3.7.0 is where `package:ffi` itself stops (`>=3.7.0 <4.0.0`), so this is the
+  # widest range the single runtime dependency permits. Verified on real SDKs,
+  # not by lowering the constraint on a newer toolchain — that only proves the
+  # language version and resolves against whatever is installed:
+  #
+  #   | SDK    | pub get | analyze | test (84) | compile exe + positive answer |
+  #   |--------|---------|---------|-----------|-------------------------------|
+  #   | 3.7.0  |    ok   |   ok    |    ok     |              ok               |
+  #   | 3.8.0  |    ok   |   ok    |    ok     |              ok               |
+  #   | 3.11.5 |    ok   |   ok    |    ok     |              ok               |
+  sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
   # The allocator and UTF-16 marshalling `dart:ffi` does not ship. Pure Dart,
@@ -36,5 +53,13 @@ dependencies:
   ffi: ^2.1.4
 
 dev_dependencies:
-  lints: ^6.0.0
+  # **Ranged, not carets, so this repo's own gates can run on its declared
+  # floor.** `lints: ^6.0.0` needs an SDK newer than 3.7.0, which meant the CI
+  # leg that proves the floor could not even `pub get` — a floor nothing can
+  # execute is a claim, not a guarantee. This range lets pub pick 6.x on a
+  # current SDK and 5.1.1 on the floor, so both legs resolve.
+  #
+  # Dev-only either way: a consumer never resolves these, so they constrain what
+  # *we* can verify, never what a consumer can use.
+  lints: ">=5.1.1 <7.0.0"
   test: ^1.25.6

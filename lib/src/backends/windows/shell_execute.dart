@@ -160,22 +160,21 @@ final DynamicLibrary _shell32 = loadSystem32('shell32.dll');
 // reference truncates the result to `int` before comparing; that is safe only
 // because every error code is small, and comparing the full pointer-sized value
 // against 32 is equivalent without the truncation.
-final _shellExecuteW = _shell32
-    .lookupFunction<
-      IntPtr Function(
-        Pointer<NativeType>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        Int32,
-      ),
-      int Function(
-        Pointer<NativeType>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        Pointer<Utf16>,
-        int,
-      )
-    >('ShellExecuteW');
+final _shellExecuteW = _shell32.lookupFunction<
+  IntPtr Function(
+    Pointer<NativeType>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    Int32,
+  ),
+  int Function(
+    Pointer<NativeType>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    Pointer<Utf16>,
+    int,
+  )
+>('ShellExecuteW');

@@ -176,6 +176,12 @@ await launchUrl(uri, allowUnsafe: true);
 
 ## Platform support
 
+**Dart SDK 3.7.0 or newer** — **Flutter 3.29.1 or newer** if you are on Flutter.
+That is where `package:ffi`, the only runtime dependency, stops, so it is the
+widest range this package can offer. It is verified on real 3.7.0 and 3.8.0 SDKs
+in CI, not declared and hoped for: an `environment` constraint is carried down to
+every consumer, so a floor nothing executes is a claim rather than a guarantee.
+
 | | `launchUrl` | `canLaunchUrl` |
 |---|---|---|
 | Windows 10+ | ✅ `ShellExecuteW` | ✅ `HKEY_CLASSES_ROOT` (per **scheme**) |

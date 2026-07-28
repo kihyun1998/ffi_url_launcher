@@ -50,12 +50,13 @@ final class MacosUrlLauncherBackend implements UrlLauncherBackend {
       // throws rather than returning `false`. There is no platform code:
       // `NSWorkspace` deals in `BOOL`, and inventing one would be worse than
       // its absence (`docs/agents/theflow.md`, macOS hidden-state list).
-      MacOpenOutcome.invalidUrl => throw UrlLaunchException(
-        url: url,
-        target: target,
-        message: 'NSURL could not construct a URL from this string',
-        platformCode: null,
-      ),
+      MacOpenOutcome.invalidUrl =>
+        throw UrlLaunchException(
+          url: url,
+          target: target,
+          message: 'NSURL could not construct a URL from this string',
+          platformCode: null,
+        ),
     };
   }
 

@@ -57,8 +57,8 @@ void main() {
         } catch (error) {
           thrown = error;
         }
-        final message = ((thrown as UnsupportedError).message as String)
-            .toLowerCase();
+        final message =
+            ((thrown as UnsupportedError).message as String).toLowerCase();
         final supportedHalf = message.split('supported').last;
         expect(
           supportedHalf,

@@ -36,12 +36,21 @@ void main() async {
   stdout.writeln('consumer: ${consumer.path}');
 
   try {
+    // **The consumer inherits this package's own SDK constraint** rather than
+    // naming one. Hardcoding it is how the guard ends up testing a floor the
+    // package does not declare: this line read `^3.11.5` while the package was
+    // being lowered to `>=3.7.0`, so the guard refused to run on the very SDK
+    // the change existed to support, and a green guard would have said nothing
+    // about the floor consumers were being promised.
+    final sdkConstraint = _packageSdkConstraint(repoRoot);
+    stdout.writeln('consumer sdk constraint (from pubspec): $sdkConstraint');
+
     _write(consumer, 'pubspec.yaml', '''
 name: compile_exe_guard
 publish_to: none
 
 environment:
-  sdk: ^3.11.5
+  sdk: $sdkConstraint
 
 dependencies:
   ffi_url_launcher:
@@ -151,6 +160,42 @@ Future<String> _run(
 Never _fail(String message) {
   stderr.writeln('\ncompile_exe_guard: $message');
   exit(1);
+}
+
+/// Reads `environment.sdk` out of this package's own `pubspec.yaml`.
+///
+/// Hand-parsed rather than pulled from a YAML package: `tool/` ships inside the
+/// published archive, and taking a dependency for it would put a second entry
+/// beside `ffi` in the very list `check_dependencies.dart` exists to keep at one
+/// (`docs/agents/theflow.md`, the dependency invariant).
+///
+/// Anchored on the `environment:` block rather than on the first `sdk:` in the
+/// file, because `sdk:` is also how a Flutter dependency is spelled — this
+/// package has none today, and a parser that would break when it does is not
+/// worth the two lines saved.
+String _packageSdkConstraint(String repoRoot) {
+  final pubspec = File('$repoRoot/pubspec.yaml').readAsLinesSync();
+
+  var inEnvironment = false;
+  for (final line in pubspec) {
+    if (line.startsWith('environment:')) {
+      inEnvironment = true;
+      continue;
+    }
+    // Any other column-0 key ends the block.
+    if (inEnvironment && line.isNotEmpty && !line.startsWith(' ')) break;
+
+    if (inEnvironment) {
+      final match = RegExp(r'^\s+sdk:\s*(.+?)\s*$').firstMatch(line);
+      if (match != null) return match.group(1)!;
+    }
+  }
+
+  _fail(
+    'could not read environment.sdk from pubspec.yaml. The guard will not '
+    'invent a constraint: doing so is what let it test a floor the package '
+    'never declared.',
+  );
 }
 
 /// Quotes a filesystem path for a YAML scalar.

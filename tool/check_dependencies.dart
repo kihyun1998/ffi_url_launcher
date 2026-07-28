@@ -54,14 +54,16 @@ void main() async {
   // are exactly those pub marked `kind: dev`. Subtracting them leaves the set
   // that a consumer actually inherits, which is the thing under guard — dev
   // dependencies never reach a consumer and are not restricted.
-  final devNames = packages
-      .where((p) => p['kind'] == 'dev')
-      .map((p) => p['name'] as String)
-      .toSet();
-  final runtime = (root['dependencies'] as List)
-      .cast<String>()
-      .where((name) => !devNames.contains(name))
-      .toSet();
+  final devNames =
+      packages
+          .where((p) => p['kind'] == 'dev')
+          .map((p) => p['name'] as String)
+          .toSet();
+  final runtime =
+      (root['dependencies'] as List)
+          .cast<String>()
+          .where((name) => !devNames.contains(name))
+          .toSet();
 
   if (_setEquals(runtime, allowedRuntimeDependencies)) {
     stdout.writeln(
