@@ -593,3 +593,63 @@ slices were built and reviewed against one Windows desktop and one macOS laptop,
 and the first contact with a differently-provisioned machine found a false
 assertion in under a minute. That is the whole argument for #6, and it paid on
 run one.
+
+---
+
+## #11 — The test exercised the right code at the wrong scale, so it measured nothing — Steps 4, 5
+
+**Rule it proves:** a test's **scale is part of its validity**. Running the
+correct code path proves nothing if the effect being guarded against is smaller
+than the noise at that size — and the name will still claim otherwise.
+
+`ns_workspace_integration_test.dart` carried a test called *"autorelease
+discipline — hundreds of real calls do not accumulate or crash"*. It ran 500
+iterations of both macOS operations. Asked directly whether it guarded the
+autorelease pool, the mutation gate said no:
+
+```
+# inAutoreleasePool reduced to `return body();` — the pool gone entirely
+$ dart test test/macos/
++16 ~1: All tests passed!
+```
+
+**Measured, with `ProcessInfo.currentRss` and two passes** so one-time warm-up
+could be told apart from steady state:
+
+| 50,000 calls | pass 1 | pass 2 |
+|---|---|---|
+| with pool (shipped) | +16 KB | **+0 KB** |
+| no pool | **+10,208 KB** | **+10,208 KB** |
+
+The leak is real, linear and unbounded — about **209 bytes per call**. At the
+500 iterations the test used, that is ~104 KB: comfortably inside RSS noise. The
+test was two orders of magnitude too small to see the thing it was named for.
+
+**What it did prove, and what that was worth.** It caught crashes, which is not
+nothing — a marshalling fault that walked off a buffer would have shown. But the
+name promised accumulation, and `theflow.md`'s rule that every guard states
+which question it answers applies to test names as much as to dartdoc. This one
+answered a narrower question than its name.
+
+**A second reading of the same evidence, in the package's favour.** The pool
+*works*. Ticket 04's criterion — "confirm autoreleased objects do not accumulate
+over hundreds of calls" — had been satisfied by proxy since it shipped, and is
+now satisfied by measurement.
+
+**What replaced it.** 50,000 iterations, a warm-up pass first, and an assertion
+on `ProcessInfo.currentRss` growth against a 4,000 KB ceiling. The ceiling is
+derived from the table above rather than tuned to pass: correct code produced 0,
+the regression produces ten to twenty megabytes, and everything between is
+headroom. Mutation-checked — disabling the pop now fails loudly:
+
+```
+resident memory grew 22976KB over 50000 calls, past the 4000KB ceiling.
+```
+
+**Why it was easy to miss in review.** The test ran real FFI against the real
+frameworks, looped, and asserted on every iteration. Everything about its shape
+said "this is thorough". Nothing about reading it reveals that 500 was chosen
+without ever measuring what 500 would show — which is the same species as
+`lessons.md` #6, where a guard's *reason* was never checked, and #9, where a
+suite of negative assertions could not distinguish two states. Filed as issue
+#11 before fixing.

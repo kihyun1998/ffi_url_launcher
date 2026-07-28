@@ -1,6 +1,8 @@
 @TestOn('mac-os')
 library;
 
+import 'dart:io';
+
 import 'package:ffi_url_launcher/ffi_url_launcher.dart';
 import 'package:ffi_url_launcher/src/backends/macos/macos_backend.dart';
 import 'package:ffi_url_launcher/src/backends/macos/ns_workspace.dart';
@@ -126,24 +128,67 @@ void main() {
   });
 
   group('autorelease discipline', () {
-    test('hundreds of real calls do not accumulate or crash', () {
-      // Each call pushes and pops its own pool, so the autoreleased
-      // NSString/NSURL — and, for the lookup, the returned NSURL, which is
-      // autoreleased and must not be released by us — are drained at call end
-      // rather than living to process exit. A missing pop would show up as
-      // unbounded growth, and a marshalling fault as a crash.
-      //
-      // Both operations are exercised, using only inputs measured to be UI-free.
-      //
-      // The lookup is driven with **`https:`, not an unregistered scheme**: the
-      // object whose lifetime this is about is the `NSURL` that
-      // `URLForApplicationToOpenURL:` *returns*, and an unregistered scheme
-      // returns `nil` — 500 iterations of which construct nothing and would
-      // prove nothing about ownership.
-      for (var i = 0; i < 500; i++) {
+    // Each call pushes and pops its own pool, so the autoreleased
+    // NSString/NSURL — and, for the lookup, the returned NSURL, which is
+    // autoreleased and must not be released by us — are drained at call end
+    // rather than living to process exit.
+    //
+    // **This used to be a 500-iteration crash check named as if it measured
+    // accumulation.** It did not: disabling `inAutoreleasePool` entirely left
+    // it green. Measured on macOS 14.5 (arm64) with `ProcessInfo.currentRss`,
+    // two passes to separate one-time cost from steady state:
+    //
+    //   | 50,000 calls | pass 1     | pass 2     |
+    //   |--------------|------------|------------|
+    //   | with pool    |     +16 KB |      +0 KB |
+    //   | no pool      | +10,208 KB | +10,208 KB |
+    //
+    // ~209 bytes per call, growing linearly and forever. At 500 iterations that
+    // is ~104 KB — inside the noise, which is why the old test could not see
+    // it. See issue #11 and `docs/agents/lessons.md` #11.
+    const iterations = 50000;
+
+    // Derived from the table above, not tuned to pass: the regression this
+    // guards produces ~10 MB here, and the correct code produced 0. Anything
+    // between is noise headroom. Raising this to quiet a red build would be
+    // removing the guard — `docs/agents/theflow.md`, Step 7.
+    const maxGrowthKb = 4000;
+
+    int rssKb() => ProcessInfo.currentRss ~/ 1024;
+
+    void exercise(int times) {
+      for (var i = 0; i < times; i++) {
         expect(workspaceOpenUrl(missingFile), MacOpenOutcome.notOpened);
+        // Driven with `https:`, not an unregistered scheme: the object whose
+        // lifetime this is about is the `NSURL` that
+        // `URLForApplicationToOpenURL:` *returns*, and an unregistered scheme
+        // returns `nil` — iterations of which construct nothing and would prove
+        // nothing about ownership.
         expect(workspaceCanOpenUrl('https://dart.dev'), isTrue);
       }
+    }
+
+    test('repeated real calls do not accumulate native memory', () {
+      // A warm-up pass first. Lazy library loads, class lookups and
+      // LaunchServices populating its own caches all cost memory once, and
+      // counting that as growth would either mask a real leak behind headroom
+      // or fail for the wrong reason.
+      exercise(2000);
+
+      final before = rssKb();
+      exercise(iterations);
+      final growthKb = rssKb() - before;
+
+      expect(
+        growthKb,
+        lessThan(maxGrowthKb),
+        reason:
+            'resident memory grew ${growthKb}KB over $iterations calls, past '
+            'the ${maxGrowthKb}KB ceiling. Measured, this is what a missing '
+            'objc_autoreleasePoolPop looks like: the autoreleased NSString / '
+            'NSURL from every call surviving to process exit, at roughly 209 '
+            'bytes a call.',
+      );
     });
   });
 }
