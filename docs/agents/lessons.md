@@ -768,6 +768,16 @@ these three, and because both wrong turns were mine.
   "prove" any conclusion. The first reading taken from it, *"25% faster"*, was
   noise. Interleaved A/B/A/B with medians and reported spread: **+1.8% / −1.7% /
   +4.6%**, i.e. nothing.
+- **The one candidate with a non-performance argument was still declined, and
+  that is the part worth recording.** `RegGetValueW` collapses the three registry
+  calls into one *and* leaves no `HKEY` in our hands, so the leak class this whole
+  entry is about becomes impossible rather than guarded. Filed as #14, closed
+  `wontfix` `[product]`: there is no measured defect, the speed gain is zero, and
+  buying the argument would make the guard above **unmutatable** — no `RegCloseKey`
+  to delete means ADR-0002's question 5 can never be answered again. **Removing a
+  defect's possibility is not automatically better than gating it, once the gate is
+  proven and the removal costs the proof.** The decision carries its expiry
+  conditions in `theflow.md` beside the reader it concerns.
 - **Why nothing was there to find.** In AOT, everything this package controls —
   three FFI transitions, one arena, three UTF-16 marshals — is **0.96 µs of a
   ~20 µs lookup, about 5%.** The rest is the registry. That single number kills

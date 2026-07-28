@@ -175,6 +175,23 @@ finds another.
   `RegGetValueW` does. This package only tests a value's *existence* and never
   reads its bytes, so the hazard does not bite here — but any change that starts
   reading a value must switch reader.
+
+  **Switching *now* was measured and declined — #14, `wontfix`, `[product]`.**
+  `RegGetValueW` takes the subkey and the value name together and opens and closes
+  internally, so it collapses three calls into one **and leaves no `HKEY` in our
+  hands at all** — the leak class becomes impossible rather than guarded. Measured:
+  identical answers on all 11 inputs, zero handle growth over 20,000 calls, and a
+  speed difference of +1.8% / −1.7% / +4.6% (interleaved medians), i.e. nothing —
+  because in AOT everything this package controls is 0.96 µs of a ~20 µs lookup.
+  Declined because there is **no measured defect** (the handle discipline is
+  correct and #13 now gates it), and buying the remaining argument would mean
+  editing the most dangerous file in the package **and** making #13's guard
+  unmutatable — permanently unanswerable on ADR-0002's question 5. **The decision
+  is the maintainer's to reverse, not a derivation to re-argue** — but it expires
+  on its own if any of these become true: this package starts reading a registry
+  *value* (then `RegGetValueW` is mandatory anyway, per the sentence above), a
+  *second* registry path appears (#13's guard covers only `isSchemeRegistered`), or
+  a handle leak actually happens once. Numbers in `lessons.md` #12.
 - **A leaked `HKEY` is invisible to resident memory.** The registry lookup is the
   only place this package holds a **kernel object**, and a kernel object is
   charged to the process's paged-pool quota — never to the address space
