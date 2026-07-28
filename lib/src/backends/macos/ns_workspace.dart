@@ -63,8 +63,7 @@ MacOpenOutcome workspaceOpenUrl(String url) {
     if (nsUrl == nullptr) return MacOpenOutcome.invalidUrl;
 
     final workspace = _sharedWorkspace();
-    final opened =
-        msgSendIdReturningBool(workspace, selector('openURL:'), nsUrl) != 0;
+    final opened = msgSendIdReturningBool(workspace, selOpenUrl, nsUrl) != 0;
 
     return opened ? MacOpenOutcome.opened : MacOpenOutcome.notOpened;
   });
@@ -103,7 +102,7 @@ bool workspaceCanOpenUrl(String url) {
     final workspace = _sharedWorkspace();
     final application = msgSendIdReturningId(
       workspace,
-      selector('URLForApplicationToOpenURL:'),
+      selUrlForApplicationToOpenUrl,
       nsUrl,
     );
 
@@ -116,7 +115,7 @@ bool workspaceCanOpenUrl(String url) {
 /// Not owned and never released: it is a shared instance the framework keeps
 /// for the life of the process, not something this call created.
 Pointer<Void> _sharedWorkspace() =>
-    msgSendReturningId(nsWorkspaceClass, selector('sharedWorkspace'));
+    msgSendReturningId(nsWorkspaceClass, selSharedWorkspace);
 
 /// Builds an autoreleased `NSURL` from [url], or `nullptr` if `NSURL` refuses
 /// the string.
@@ -129,13 +128,9 @@ Pointer<Void> _nsUrlFrom(String url) {
   return using((arena) {
     final nsString = msgSendCStringReturningId(
       nsStringClass,
-      selector('stringWithUTF8String:'),
+      selStringWithUtf8String,
       url.toNativeUtf8(allocator: arena),
     );
-    return msgSendIdReturningId(
-      nsUrlClass,
-      selector('URLWithString:'),
-      nsString,
-    );
+    return msgSendIdReturningId(nsUrlClass, selUrlWithString, nsString);
   });
 }

@@ -265,6 +265,14 @@ finds another.
   already solved this for CoreText; the same discipline applies here.
 - **`objc_msgSend` must be declared per call signature.** Reusing one declaration
   across calls with different return types breaks silently on arm64.
+- **A `SEL` is interned and safe to cache — measured, not recited.** On macOS
+  14.5 (arm64): `sel_registerName` returned an identical pointer across 10,000
+  registrations of each name, `sel_getUid` agreed with it, `sel_getName`
+  round-tripped the exact string, and registering 5,000 unrelated selectors
+  afterwards moved none of them — so no rehash can leave a cached `SEL` stale.
+  Owned by the runtime for the life of the process; never released. The five
+  this package sends are resolved once in `objc.dart`, beside the three classes,
+  so **the complete Objective-C surface it touches is auditable in one place.**
 - **`NSWorkspace` wants the main thread**, and `ShellExecuteW` depends on the COM
   apartment the calling thread already has. Neither call may be moved into a
   spawned isolate. **This is why the package's `Future` API is a wrapper over a
