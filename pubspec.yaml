@@ -2,7 +2,7 @@ name: ffi_url_launcher
 description: >-
   Open a URL in the system's registered handler on Windows and macOS. Pure Dart,
   with no Flutter dependency and no native sources to compile.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/kihyun1998/ffi_url_launcher
 issue_tracker: https://github.com/kihyun1998/ffi_url_launcher/issues
 
@@ -32,27 +32,25 @@ environment:
   # straight down to every consumer, so it was silently demanding an SDK upgrade
   # of anyone adopting it.
   #
-  # **Held at the published 0.1.0 value while an open question is settled.**
+  # **3.10.0 is a measured boundary, not a compromise.** It is where macOS
+  # `[NSURL URLWithString:]` stops running in a strict RFC 3986 mode that refuses
+  # non-ASCII *and spaces*; 3.9.0 and older accept only percent-encoded input.
+  # Measured exactly across 3.8.0 / 3.9.0 / 3.10.0 / 3.11.5 / stable on one macOS
+  # image (`docs/agents/lessons.md` #13).
   #
-  # This was measured to be four minor versions higher than anything the package
-  # needs — `dart create` wrote it and nobody chose it — and lowering it is worth
-  # doing, because the constraint is carried down to every consumer. Two attempts
-  # were made and both were withdrawn: on macOS, Dart **3.7.0 and 3.8.0** both
-  # answer `MacOpenOutcome.invalidUrl` for a non-ASCII `file:` URL, so
-  # `launchUrl` *throws* there where 3.12.2 returns `false`. Deterministic
-  # (reproduced on a re-run), with the macOS image, `ffi` version and UTF-8 bytes
-  # all verified identical, and the mechanism **not yet explained**.
+  # **Why the boundary rather than the widest range that resolves.**
+  # `package:ffi` would allow 3.7.0, and the public API is safe even there —
+  # every backend hands over `url.toString()`, which percent-encodes exactly what
+  # the strict mode wants, verified 7/7 on 3.9.0. But a caller reaching a backend
+  # directly through `UrlLauncher.withBackend` bypasses `Uri`, so below 3.10.0
+  # the package's behaviour depends on *how* it is called. Stopping at the
+  # boundary makes it uniform on every supported SDK, and removes a caveat the
+  # README would otherwise have to carry.
   #
-  # Binary-searching the floor upward until CI goes green would be finding the
-  # SDK where the symptom stops, not the reason it starts — and a floor chosen
-  # that way is the "never move a threshold to turn a build green" failure with
-  # extra steps. So the floor stays where the published version put it until the
-  # cause is known. See `docs/agents/lessons.md` #13.
-  #
-  # **Note what this value is not:** 3.11.5 has never been run on macOS either.
-  # The `stable` CI leg is 3.12.2. This is the status quo of the shipped package,
-  # not a verified floor.
-  sdk: ^3.11.5
+  # The previous value was `^3.11.5`, which `dart create` wrote and nobody chose
+  # — four minor versions above anything the package uses. Flutter terms:
+  # 3.11.5 is Flutter 3.41.9, 3.10.0 is Flutter 3.38.2.
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
   # The allocator and UTF-16 marshalling `dart:ffi` does not ship. Pure Dart,

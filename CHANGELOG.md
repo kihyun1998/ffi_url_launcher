@@ -1,3 +1,30 @@
+## 0.1.1
+
+**Lowers the SDK floor from `^3.11.5` to `>=3.10.0` — Flutter 3.38.2 and newer.**
+No API change.
+
+- **The old floor was never a requirement.** `dart create` wrote whatever SDK was
+  installed at the time and it stayed untouched through 0.1.0, four minor
+  versions above anything this package uses. An `environment` constraint is
+  carried down to every consumer, so 0.1.0 was asking for an SDK upgrade it did
+  not need.
+- **3.10.0 is a measured boundary.** Below it, macOS `[NSURL URLWithString:]`
+  runs in a strict RFC 3986 mode that refuses non-ASCII characters and spaces,
+  accepting only percent-encoded input; from 3.10.0 it is lenient. Measured
+  across 3.8.0 / 3.9.0 / 3.10.0 / 3.11.5 / stable on one macOS image.
+- **The public API was never exposed to that**, even below the boundary: every
+  call hands the operating system `url.toString()`, and `Uri` percent-encodes
+  precisely what the strict mode requires — verified on Dart 3.9.0. The floor
+  stops at the boundary anyway, so that behaviour does not depend on *how* the
+  package is called: a consumer reaching a backend directly through
+  `UrlLauncher.withBackend` gets the same answers as one using `launchUrl`.
+- CI now runs the full suite and the compiled-consumer guard **on the floor
+  itself**, on Windows and macOS, so it cannot decay into a claim.
+- A macOS integration test was driving its seam with a raw non-ASCII string
+  rather than the `Uri.toString()` form the package actually sends. Fixed; it
+  now tests the marshalling as performed rather than a shape no caller can
+  produce.
+
 ## 0.1.0
 
 Initial slice — Windows and macOS launch.

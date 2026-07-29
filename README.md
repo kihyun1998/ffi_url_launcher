@@ -176,11 +176,16 @@ await launchUrl(uri, allowUnsafe: true);
 
 ## Platform support
 
-**Dart SDK 3.11.5 or newer**, which is higher than this package needs and is
-[being lowered](https://github.com/kihyun1998/ffi_url_launcher/issues) — the
-first two attempts turned up a real behavioural difference on older SDKs and were
-withdrawn rather than shipped. If the floor is blocking you, say so on the issue
-tracker; the constraint is the only thing in the way.
+**Dart SDK 3.10.0 or newer** — **Flutter 3.38.2 or newer** if you are on Flutter.
+CI runs the whole suite on the floor itself, on both operating systems, so this
+is a measured number rather than a declared one.
+
+It is a boundary, not a compromise: below 3.10.0, macOS `[NSURL URLWithString:]`
+runs in a strict mode that refuses non-ASCII characters and spaces. The public
+API is unaffected even there — every call hands the OS `url.toString()`, which
+percent-encodes exactly what that mode wants — but stopping at the boundary means
+the package behaves the same way on every SDK it claims to support, however it is
+called.
 
 | | `launchUrl` | `canLaunchUrl` |
 |---|---|---|
