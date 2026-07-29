@@ -883,3 +883,97 @@ honest, went red immediately, and what it found was not the promise but a test
 that had never been valid. That is the same shape as #10 — a machine you did not
 configure is a different reader — one layer down: **a version you did not run is
 a different reader too.**
+
+---
+
+
+## #14 — A citation was trusted instead of opened, and `lib/` was still carrying the claim the cited entry had withdrawn — Steps 1, 4
+
+**Rule it proves:** Step 1's *"never use a summarizing fetch"* is not about
+fetches. It is about **reading the source you cite.** A one-line reference to
+`lessons.md #8` inside a dartdoc is a summary of #8, written by someone who read
+an earlier #8 — and summaries do not get corrected when their source does.
+
+**What happened.** Asked to measure whether the macOS
+`URLForApplicationToOpenURL:` lookup is expensive, a probe was written. The
+lookup half was clean. Then two modes were added to compare the *launch* path,
+both driven by `zzznotreal://x` — an unregistered scheme — for ~1,900 calls
+across two runs. Every one of them raised the LaunchServices modal panel. The
+maintainer's screen filled with them and `CoreServicesUIAgent` sat at 66% CPU
+draining the queue; `killall` did not take, and the backlog was closed by hand.
+
+**The input was documented as forbidden, in two places, in this repo:**
+
+- #8's correction box above — *"`zzznotreal-ffiurllauncher://x` → `NO` → **a
+  modal panel***" — sitting under a line the entry itself flags `<- WRONG`.
+- `theflow.md` Step 4, launch/failure half: *"⚠ **Not** an unregistered scheme:
+  it answers `NO` too, but raises a modal panel, so it is skipped exactly as its
+  Windows twin is."*
+
+**Why it was used anyway.** The file actually read was
+`lib/src/backends/macos/ns_workspace.dart`, whose `notOpened` dartdoc said:
+
+```
+/// measured against a scheme nothing handles and against a `file:` URL for a
+/// missing file, `NSWorkspace.open` returned `NO` and opened no window
+/// (`docs/agents/lessons.md` #8).
+```
+
+That is #8 **before** its own correction, still in `lib/`, citing the entry that
+refutes it. The citation was then copied forward a second time, into the probe's
+comment — *"measured UI-free (`docs/agents/lessons.md` #8)"* — and #8 was never
+opened at any point. **Corrections propagated into `docs/` and stopped there,
+leaving the falsified version in the file people actually read.**
+
+**The guard that could not see it.** The probe asserted its premise rather than
+trusting it, in the ADR-0002 shape:
+
+```dart
+final outcome = workspaceOpenUrl(url);
+if (outcome != MacOpenOutcome.notOpened) {
+  throw StateError('$url answered $outcome — this probe would open windows');
+}
+```
+
+It held on all ~1,900 calls, because **it is true.** `NSWorkspace` answers `NO`
+and `CoreServicesUIAgent` draws the panel; the two are independent, so no return
+value observes the screen. The guard asserted the one thing never in doubt and
+was structurally incapable of detecting the harm named in its own message. This
+is ADR-0002's sixth question — *what would this guard fail to see?* — and it is
+the fourth entry here where a precondition of a guard, not the guard's logic,
+was the defect (#7, #9, #11).
+
+**Measurements withdrawn.** Everything from the launch modes: warm 25–110 µs per
+call, cold one-shot 2.1–3.0 ms, and the conclusion drawn from them — *"the launch
+path pays the same one-time LaunchServices setup, so `canLaunchUrl` only pays it
+first rather than adding it."* Wrong input, and taken while the panel machinery
+ran. That question is **unmeasured again**, and measuring it needs an instrument
+that watches the screen, not a return value.
+
+**Measurements that stand,** because the lookup modes never call `openURL:` —
+macOS 14.5 arm64, Dart 3.11.5, AOT-compiled:
+
+| | |
+|---|---|
+| warm, `https:` | 6.5–7.2 µs (2.4–2.6 µs of it this package's `NSString`/`NSURL`) |
+| warm, `mailto:` / unregistered | 4.6–5.5 µs |
+| warm, `file:` | **42–53 µs**, ~7× `https:`, independent of whether the file exists |
+| cold, first lookup in a process | 1.39–1.62 ms; whole cold path 2.07–2.40 ms |
+| second lookup onward | 10–70 µs — the cold figure is **one-time setup, not per-URL** |
+| distinct path / host / scheme per call | same as repeating one URL — **no memoisation** |
+
+So *"the LaunchServices lookup is expensive"* is **false** for the warm path: at
+~7 µs it is about 3× cheaper than this package's own Windows registry lookup
+(~20 µs, #12). The `file:` row is the only real cost and nobody had named it.
+And the ~100k lookups run here are independent re-confirmation of the other half
+of #8 — `URLForApplicationToOpenURL:` raised no panel, ever.
+
+**What changed.** The dartdoc above now carries the correction and the war story.
+The probe's two `openURL:` modes are deleted, with the reason in its header:
+`.scratch/ffi-url-launcher/probes/macos_cost.dart` looks up and never launches.
+
+**The transferable part.** A cited claim and its citation drift apart silently,
+and the drift always favours the copy — `lib/` is read constantly, `docs/` is
+read when someone goes looking. **When an entry here is corrected, grep `lib/`
+and the probes for anything citing its number.** The correction is not landed
+until the copies are.

@@ -24,8 +24,23 @@ enum MacOpenOutcome {
   /// as *success* (42, measured) and `false` is effectively unreachable — this
   /// `NO` is **honest and reachable**: measured against a scheme nothing
   /// handles and against a `file:` URL for a missing file, `NSWorkspace.open`
-  /// returned `NO` and opened no window (`docs/agents/lessons.md` #8). So on
-  /// macOS a `false` from `launch` genuinely means "nothing opened this".
+  /// returned `NO` both times (`docs/agents/lessons.md` #8). So on macOS a
+  /// `false` from `launch` genuinely means "nothing opened this".
+  ///
+  /// ⚠ **`NO` does not mean nothing appeared on screen — and this comment used
+  /// to say it did.** For an **unregistered scheme** macOS raises a modal panel
+  /// — *"there is no application set to open the URL"* — while still answering
+  /// `NO`. `NSWorkspace` returns the boolean and `CoreServicesUIAgent` draws
+  /// the panel; neither observes the other, so no return value can be read as
+  /// evidence about the screen. Only the **missing-`file:`** input is silent,
+  /// which is why it is the one the integration test uses and the only launch
+  /// input a probe may use (#8's correction, #9).
+  ///
+  /// The earlier wording here claimed *both* inputs opened no window and cited
+  /// #8 for it — which #8 had already withdrawn in a box on the same page. A
+  /// probe trusted this line instead of the entry it points at and drove the
+  /// scheme input ~1,900 times, putting that many panels on the maintainer's
+  /// screen (#14).
   notOpened,
 
   /// `[NSURL URLWithString:]` returned `nil` — the string is not a URL
