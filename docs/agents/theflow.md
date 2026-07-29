@@ -270,20 +270,31 @@ finds another.
   links Foundation, so URL construction succeeds while every workspace call
   quietly says no. Classes therefore resolve through `_classInAppKit`, which
   calls `DynamicLibrary.open` directly and **throws** on a `nullptr` lookup.
-- **`[NSURL URLWithString:]`'s leniency is SDK-dependent, and `invalidUrl` IS
-  reachable from real input.** It returned a non-nil `NSURL` for the empty
-  string, `"not a url with spaces"`, and every scheme tried — **on a current
-  SDK**. On **Dart 3.7.0 / macOS 26 arm64 it refuses a non-ASCII `file:` URL**
-  (`file:///zzz-없는파일-ффи.zzzq`), so `MacOpenOutcome.invalidUrl` fires and
-  `launchUrl` **throws** where every later SDK returns `false` — the same input
-  behaving differently for a consumer depending on *their* SDK.
-  **⚠ The mechanism is not explained.** Ruled out by measurement: the macOS
-  image (identical, `macos-26-arm64/20260720.0258`), `package:ffi` (identical,
-  2.2.0), and the UTF-8 bytes reaching the runtime (byte-identical across 3.7.0,
-  3.8.0 and 3.11.5). Reproduced on a re-run, so it is deterministic, not flaky.
-  This is why the SDK floor is **3.8.0 and not the 3.7.0 `package:ffi` would
-  allow**. Do not restore the old sentence without re-measuring; it was written
-  from one SDK and read as a property of `NSURL`.
+- **`[NSURL URLWithString:]`'s leniency is SDK-dependent — and the leniency is
+  not what the package relies on.** It returns a non-nil `NSURL` for the empty
+  string, `"not a url with spaces"`, and every scheme tried **from Dart 3.10.0
+  on**. On **3.9.0 and older it runs in a strict RFC 3986 mode**: non-ASCII *and
+  spaces* are refused and only percent-encoded input is accepted. Boundary
+  measured exactly across 3.8.0 / 3.9.0 / 3.10.0 / 3.11.5 / stable on one macOS
+  image, with `NSString` fine for every input — the nil is `URLWithString:`
+  alone.
+
+  **This is unreachable through the public API**, and that is not luck: both
+  backend methods hand over `url.toString()`, and `Uri.toString()`
+  percent-encodes non-ASCII and spaces, which is exactly what the strict mode
+  wants. Asserted on 3.9.0 — seven inputs that fail raw all construct fine once
+  routed through `Uri`.
+
+  **So the rule is about test inputs, not about the floor.** Any test driving
+  `workspaceOpenUrl` / `workspaceCanOpenUrl` must pass
+  `Uri.parse(…).toString()`, never a raw literal, or it measures a string the
+  package cannot produce — which is how this cost a red matrix and two wrong SDK
+  floors (`lessons.md` #13). The one genuinely exposed caller is someone reaching
+  the seam directly through `UrlLauncher.withBackend` on an old SDK.
+
+  `MacOpenOutcome.invalidUrl` is therefore still near-unreachable in practice,
+  but for a **different reason than originally recorded**: not because `NSURL`
+  is lenient, but because `Uri` normalises before it is asked.
 - **`URLForApplicationToOpenURL:` answers per-URL, where Windows answers
   per-scheme.** It returns the application that *would* open this exact URL, or
   `nil`. Measured, agreeing with Swift: `https:` → Google Chrome, `mailto:` →

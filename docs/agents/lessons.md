@@ -799,67 +799,87 @@ launch path takes ownership of any OS handle, it needs its own guard.
 
 ---
 
-## #13 — A CI leg added to keep a promise honest went red on its first run, and the promise was the wrong one — Steps 4, 7
 
-**Rule it proves:** an SDK floor is a promise about **behaviour**, not about
-resolution — and the only thing that can tell the difference is executing the
-floor. Also: `lessons.md` #10 again, one layer down. A *version* you did not run
-is as unverified as a machine you did not configure.
+## #13 — A test used an input the package cannot produce, and a CI leg turned that into an SDK floor that was never the problem — Steps 4, 7
 
-The `environment: sdk:` constraint had been `^3.11.5` since the initial commit —
-a `dart create` default nobody chose, carried down to every consumer by a caret
-range. Measuring the real floor gave `>=3.7.0`, where `package:ffi` stops, and
-Dart 3.7.0 and 3.8.0 were downloaded and run in full to earn it. A CI leg was
-added at 3.7.0 so the claim could not decay.
+**Rule it proves:** a test's **input** is part of its validity, exactly as scale
+(#11) and instrument (#12) are. Driving a seam with a string the layer above
+never sends measures a code path no consumer has — and when it fails, everything
+downstream of "why did it fail" is answering the wrong question.
 
-**Seven of eight legs were green. The eighth was `gates (macos-latest, Dart
-3.7.0)`:**
+The chain, because the wrong turns are the lesson:
+
+1. `environment: sdk:` had been `^3.11.5` since the initial commit — a
+   `dart create` default nobody chose, carried down to every consumer. Lowering
+   it is genuinely worth doing.
+2. The measured floor was `>=3.7.0`, where `package:ffi` stops, and a CI leg was
+   added there so the claim could not decay.
+3. **That leg went red on macOS only**, on
+   `ns_workspace_integration_test.dart`'s *"survives a non-ASCII URL"*:
+   `MacOpenOutcome.invalidUrl` where the current SDK gives `notOpened`. Every
+   local verification had been on Windows, and the test is `@TestOn('mac-os')`.
+4. The floor was moved to 3.8.0. **It failed identically** — so the number was
+   being chosen to dodge a symptom, which is "never move a threshold to turn a
+   build green" with extra steps. The floor was returned to the published value
+   and the investigation started properly.
+
+**The diagnosis, from a throwaway branch printing intermediates on five SDKs:**
 
 ```
-test/macos/ns_workspace_integration_test.dart:
-  the real NSWorkspace launch path survives a non-ASCII URL without crashing
-Expected: MacOpenOutcome:<MacOpenOutcome.notOpened>
-  Actual: MacOpenOutcome:<MacOpenOutcome.invalidUrl>
+Dart 3.9.0                                  Dart 3.10.0
+ascii control     nsString=ok  nsUrl=ok     nsUrl=ok
+file:///…한글…    nsString=ok  nsUrl=NIL    nsUrl=ok
+file:///…ффи…     nsString=ok  nsUrl=NIL    nsUrl=ok
+percent-encoded   nsString=ok  nsUrl=ok     nsUrl=ok
+"zzz plain.zzzq"  nsString=ok  nsUrl=NIL    nsUrl=ok   <- a SPACE
+https://…/한글    nsString=ok  nsUrl=NIL    nsUrl=ok
 ```
 
-Every local verification had been done on **Windows**, and that test is
-`@TestOn('mac-os')` — so it had never executed at the floor anywhere. The one
-combination nobody could run locally is the one that broke.
+`NSString` is fine for every input; the nil is **`[NSURL URLWithString:]`**
+alone. On **3.9.0 and older it runs in a strict RFC 3986 mode** that refuses
+non-ASCII *and spaces*, accepting only percent-encoded input; from **3.10.0** it
+is lenient. The boundary is exact and reproducible.
 
-**The candidates were measured away rather than argued away:**
+**And then the finding inverted.** The package's backends hand `NSWorkspace`
+`url.toString()` and nothing else — and `Uri.toString()` percent-encodes
+non-ASCII and spaces. Asserted on Dart 3.9.0, the same seven inputs routed
+through `Uri` first:
 
-| Hypothesis | Check | Result |
-|---|---|---|
-| different macOS image | both legs' `Set up job` | identical — `macos-26-arm64/20260720.0258` |
-| different `package:ffi` | both legs' `pub get` | identical — `ffi 2.2.0` |
-| SDK encodes UTF-8 differently | byte dump on 3.7.0 / 3.8.0 / 3.11.5 | **identical 36 bytes** |
-| flaky | re-ran the failed job alone | **failed identically** — deterministic |
+```
+PUBLICPATH | nsUrl=ok | file:///zzz-%EC%97%86%EB%8A%94…%D0%B8.zzzq
+PUBLICPATH | nsUrl=ok | file:///zzz%20plain.zzzq
+PUBLICPATH | nsUrl=ok | https://example.test/%ED%95%9C%EA%B8%80
+…7 of 7
+```
 
-So the same bytes, on the same OS, through the same `ffi`, answer differently on
-Dart 3.7.0 than on 3.12.2 — reproducibly, and **the mechanism is still not
-explained.** It is recorded as measured-but-unexplained rather than given a
-plausible cause, per the "unconfirmed ≠ absent" rule that also forbids inventing
-one.
+**The defect is unreachable through the public API.** Only the test could reach
+it, by handing the seam a raw literal that no caller can produce.
 
-**Why loosening the test would have been the wrong fix — and was the first thing
-proposed.** The test's own comment calls it *"deliberately weak … crash
-detection"*, and both outcomes are clean returns, so relaxing it to "returns
-something" looked like restoring a test to its stated scope (ADR-0002 question
-6). That reasoning was wrong, because `MacOpenOutcome.invalidUrl` is **mapped to
-a throw** by the backend: on 3.7.0 a consumer's non-ASCII `file:` URL raises
-`UrlLaunchException` where on 3.12 it returns `false`. The difference is
-user-visible behaviour, not a test detail, and a looser assertion would have
-shipped **two behaviours under one version range** with nothing recording it.
+**Three conclusions were stated confidently along the way and each was wrong:**
 
-**What replaced it.** The floor moved to **3.8.0** — one above what resolution
-allows — and `environment.sdk` and the CI matrix moved **in the same commit**,
-because `theflow.md` Step 7's "never move a threshold to turn a build green"
-applies exactly here: raising the CI number alone would have been lowering the
-promise silently. The hidden-state entry claiming *"nil is nearly unreachable"*
-is corrected in place; it was written from one SDK and read as a property of
-`NSURL`.
+| Claim | What killed it |
+|---|---|
+| *"the floor is 3.7.0"* | macOS CI, first run |
+| *"3.8.0 then"* | macOS CI, identically — the number was dodging a symptom |
+| *"a consumer on Flutter 3.32 is affected, so acra_client must not adopt this"* | `Uri.toString()` already encodes; measured 7/7 green on 3.9.0 |
 
-**Cost had the leg not existed:** the package would have declared `>=3.7.0`,
-resolved cleanly for a consumer on Flutter 3.29, and thrown on a Korean or
-Cyrillic filename where the same code returned `false` for everyone else — the
-kind of defect that arrives as a user's bug report about *their* file names.
+The third is the expensive one: a real downstream decision was given a wrong
+answer, from combining two correct measurements (raw strings fail; consumers are
+on old SDKs) without checking whether the first could reach the second.
+
+**What replaced it.** The test now drives the seam with
+`Uri.parse(…).toString()` — the only string the layer above ever sends — so it
+tests non-ASCII marshalling as the package actually performs it. **`lib/` needed
+no change**, and the macOS percent-encoding shim that was briefly proposed would
+have added a double-encoding hazard to fix nothing.
+
+**What is still open:** the floor is still the scaffolded `^3.11.5`. With the
+test corrected, lowering it is unblocked — and 3.9.0 and older remain worth a
+recorded caveat, since a caller reaching the seam directly through
+`UrlLauncher.withBackend` bypasses `Uri` and would meet the strict mode.
+
+**Why the CI leg was still worth adding.** It was added to keep a promise
+honest, went red immediately, and what it found was not the promise but a test
+that had never been valid. That is the same shape as #10 — a machine you did not
+configure is a different reader — one layer down: **a version you did not run is
+a different reader too.**

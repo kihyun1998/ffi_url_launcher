@@ -50,8 +50,22 @@ void main() {
       // Crash detection, and labelled as such: a bad UTF-8→NSString conversion
       // that walked off the buffer would not return cleanly. It still resolves
       // to a missing file, so the answer is notOpened with no UI.
+      //
+      // **Driven through `Uri`, because that is the only string this seam ever
+      // receives.** Both backend methods hand over `url.toString()`, and
+      // `Uri.toString()` percent-encodes non-ASCII and spaces — so a raw
+      // literal here is an input the package cannot produce.
+      //
+      // That distinction is not pedantic; it cost a red CI matrix. This line
+      // used to pass the raw string, and on **Dart 3.9.0 and older**
+      // `[NSURL URLWithString:]` runs in a strict mode that refuses non-ASCII
+      // *and spaces*, so it answered `invalidUrl` there and `notOpened` from
+      // 3.10.0 on. Measured across five SDKs on one macOS image; the same seven
+      // inputs all construct fine on 3.9.0 once `Uri.toString()` has encoded
+      // them (`docs/agents/lessons.md` #13). The encoding is what makes this an
+      // honest non-ASCII test rather than a test of a shape no caller can send.
       expect(
-        workspaceOpenUrl('file:///zzz-없는파일-ффи.zzzq'),
+        workspaceOpenUrl(Uri.parse('file:///zzz-없는파일-ффи.zzzq').toString()),
         MacOpenOutcome.notOpened,
       );
     });
