@@ -83,6 +83,44 @@ void main() {
         final u = msgSendIdReturningId(nsUrlClass, selUrlWithString, s);
         expect(u, isNot(nullptr), reason: 'NSURL itself is not reachable');
       });
+
+      // **The question that decides whether any of this reaches a consumer.**
+      // The public API takes a `Uri` and every backend hands over
+      // `url.toString()`, which percent-encodes non-ASCII and spaces — and the
+      // table above shows percent-encoded input surviving even on the strict
+      // SDKs. So the raw strings that fail are ones no caller going through
+      // `launchUrl`/`canLaunchUrl` can produce. This asserts that, on whichever
+      // SDK is running, rather than leaving it as an inference from two
+      // separate measurements.
+      // ignore: avoid_print
+      print('--- PUBLIC PATH START ---');
+      for (final raw in inputs.values) {
+        final viaUri = Uri.parse(raw).toString();
+        using((arena) {
+          final s = msgSendCStringReturningId(
+            nsStringClass,
+            selStringWithUtf8String,
+            viaUri.toNativeUtf8(allocator: arena),
+          );
+          final u = s == nullptr
+              ? nullptr
+              : msgSendIdReturningId(nsUrlClass, selUrlWithString, s);
+          // ignore: avoid_print
+          print(
+            'PUBLICPATH | nsUrl=${u == nullptr ? "NIL" : "ok"} | $viaUri',
+          );
+          expect(
+            u,
+            isNot(nullptr),
+            reason:
+                'Uri.toString() produced "$viaUri" and NSURL still refused it. '
+                'That would mean the defect IS reachable through the public '
+                'API, which is the opposite of what the raw-string table says.',
+          );
+        });
+      }
+      // ignore: avoid_print
+      print('--- PUBLIC PATH END ---');
     });
   });
 }
