@@ -176,11 +176,17 @@ await launchUrl(uri, allowUnsafe: true);
 
 ## Platform support
 
-**Dart SDK 3.7.0 or newer** — **Flutter 3.29.1 or newer** if you are on Flutter.
-That is where `package:ffi`, the only runtime dependency, stops, so it is the
-widest range this package can offer. It is verified on real 3.7.0 and 3.8.0 SDKs
-in CI, not declared and hoped for: an `environment` constraint is carried down to
-every consumer, so a floor nothing executes is a claim rather than a guarantee.
+**Dart SDK 3.8.0 or newer** — **Flutter 3.32.0 or newer** if you are on Flutter.
+CI runs the whole suite on the floor itself, on both operating systems, so this
+is a measured number rather than a declared one: an `environment` constraint is
+carried down to every consumer, and a floor nothing executes is a claim rather
+than a guarantee.
+
+`package:ffi` — the only runtime dependency — would allow 3.7.0, and the floor is
+deliberately one above it. On 3.7.0, macOS `[NSURL URLWithString:]` refuses a
+non-ASCII `file:` URL, so `launchUrl` **throws** there where every later SDK
+returns `false`. A floor is a promise about behaviour, not just about
+resolution, so it stops where the behaviour stops being uniform.
 
 | | `launchUrl` | `canLaunchUrl` |
 |---|---|---|

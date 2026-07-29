@@ -26,10 +26,11 @@ import 'package:ffi/ffi.dart';
 /// Linux without ever opening a dylib that is not there.
 
 // `objc_getClass(const char*)` -> Class. A Class is an `id`, pointer-sized.
-final Pointer<Void> Function(Pointer<Utf8>) objcGetClass = _objc.lookupFunction<
-  Pointer<Void> Function(Pointer<Utf8>),
-  Pointer<Void> Function(Pointer<Utf8>)
->('objc_getClass');
+final Pointer<Void> Function(Pointer<Utf8>) objcGetClass = _objc
+    .lookupFunction<
+      Pointer<Void> Function(Pointer<Utf8>),
+      Pointer<Void> Function(Pointer<Utf8>)
+    >('objc_getClass');
 
 // `sel_registerName(const char*)` -> SEL. Registering a selector that already
 // exists returns the existing one, so this is safe to call per message send.
@@ -61,18 +62,20 @@ final Pointer<Void> Function(Pointer<Void>, Pointer<Void>) msgSendReturningId =
 /// `id objc_msgSend(id, SEL, const char*)` — one C-string argument returning an
 /// object, e.g. `[NSString stringWithUTF8String:]`.
 final Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Utf8>)
-msgSendCStringReturningId = _objc.lookupFunction<
-  Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Utf8>),
-  Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Utf8>)
->('objc_msgSend');
+msgSendCStringReturningId = _objc
+    .lookupFunction<
+      Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Utf8>),
+      Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Utf8>)
+    >('objc_msgSend');
 
 /// `id objc_msgSend(id, SEL, id)` — one object argument returning an object,
 /// e.g. `[NSURL URLWithString:]`.
 final Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
-msgSendIdReturningId = _objc.lookupFunction<
-  Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>),
-  Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
->('objc_msgSend');
+msgSendIdReturningId = _objc
+    .lookupFunction<
+      Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>),
+      Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
+    >('objc_msgSend');
 
 /// `BOOL objc_msgSend(id, SEL, id)` — one object argument returning a `BOOL`,
 /// e.g. `[NSWorkspace openURL:]`.
@@ -82,10 +85,11 @@ msgSendIdReturningId = _objc.lookupFunction<
 /// 0 or 1, and reading that byte and testing `!= 0` is correct for either,
 /// whereas committing to the `_Bool` ABI would be a bet on the architecture.
 final int Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
-msgSendIdReturningBool = _objc.lookupFunction<
-  Uint8 Function(Pointer<Void>, Pointer<Void>, Pointer<Void>),
-  int Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
->('objc_msgSend');
+msgSendIdReturningBool = _objc
+    .lookupFunction<
+      Uint8 Function(Pointer<Void>, Pointer<Void>, Pointer<Void>),
+      int Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)
+    >('objc_msgSend');
 
 /// Looks up the class named [name], or `nullptr` if the runtime has no such
 /// class. The returned `Class` is a runtime singleton and is **not owned** —

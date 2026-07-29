@@ -105,22 +105,23 @@ final DynamicLibrary _advapi32 = loadSystem32('advapi32.dll');
 
 // LSTATUS RegOpenKeyExW(HKEY, LPCWSTR lpSubKey, DWORD ulOptions,
 //                       REGSAM samDesired, PHKEY phkResult);
-final _regOpenKeyExW = _advapi32.lookupFunction<
-  Uint32 Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    Uint32,
-    Uint32,
-    Pointer<Pointer<NativeType>>,
-  ),
-  int Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    int,
-    int,
-    Pointer<Pointer<NativeType>>,
-  )
->('RegOpenKeyExW');
+final _regOpenKeyExW = _advapi32
+    .lookupFunction<
+      Uint32 Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        Uint32,
+        Uint32,
+        Pointer<Pointer<NativeType>>,
+      ),
+      int Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        int,
+        int,
+        Pointer<Pointer<NativeType>>,
+      )
+    >('RegOpenKeyExW');
 
 // LSTATUS RegQueryValueExW(HKEY, LPCWSTR lpValueName, LPDWORD lpReserved,
 //                          LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
@@ -130,26 +131,28 @@ final _regOpenKeyExW = _advapi32.lookupFunction<
 // null-terminator guarantee from mattering here — a hazard that becomes real
 // the moment anything starts reading a value, at which point the reader must
 // change to `RegGetValueW`.
-final _regQueryValueExW = _advapi32.lookupFunction<
-  Uint32 Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    Pointer<Uint32>,
-    Pointer<Uint32>,
-    Pointer<Uint8>,
-    Pointer<Uint32>,
-  ),
-  int Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    Pointer<Uint32>,
-    Pointer<Uint32>,
-    Pointer<Uint8>,
-    Pointer<Uint32>,
-  )
->('RegQueryValueExW');
+final _regQueryValueExW = _advapi32
+    .lookupFunction<
+      Uint32 Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        Pointer<Uint32>,
+        Pointer<Uint32>,
+        Pointer<Uint8>,
+        Pointer<Uint32>,
+      ),
+      int Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        Pointer<Uint32>,
+        Pointer<Uint32>,
+        Pointer<Uint8>,
+        Pointer<Uint32>,
+      )
+    >('RegQueryValueExW');
 
-final _regCloseKey = _advapi32.lookupFunction<
-  Uint32 Function(Pointer<NativeType>),
-  int Function(Pointer<NativeType>)
->('RegCloseKey');
+final _regCloseKey = _advapi32
+    .lookupFunction<
+      Uint32 Function(Pointer<NativeType>),
+      int Function(Pointer<NativeType>)
+    >('RegCloseKey');

@@ -3,15 +3,14 @@ import 'backends/windows/windows_backend.dart';
 import 'url_launcher_backend.dart';
 
 /// How a platform this package supports is built and named.
-typedef PlatformSupport =
-    ({
-      /// The name to show a human — `macOS`, not `macos`.
-      String displayName,
+typedef PlatformSupport = ({
+  /// The name to show a human — `macOS`, not `macos`.
+  String displayName,
 
-      /// Builds the backend. A factory rather than an instance so a backend is
-      /// only constructed on the platform that asked for one.
-      UrlLauncherBackend Function() create,
-    });
+  /// Builds the backend. A factory rather than an instance so a backend is
+  /// only constructed on the platform that asked for one.
+  UrlLauncherBackend Function() create,
+});
 
 /// Every operating system this package has a **wired** backend for, keyed the
 /// way `Platform.operatingSystem` spells it.

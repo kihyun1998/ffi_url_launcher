@@ -32,17 +32,23 @@ environment:
   # straight down to every consumer, so it was silently demanding an SDK upgrade
   # of anyone adopting it.
   #
-  # 3.7.0 is where `package:ffi` itself stops (`>=3.7.0 <4.0.0`), so this is the
-  # widest range the single runtime dependency permits. Verified on real SDKs,
-  # not by lowering the constraint on a newer toolchain — that only proves the
-  # language version and resolves against whatever is installed:
+  # `package:ffi` stops at 3.7.0, so that is the widest range the single runtime
+  # dependency permits — **and this floor is deliberately one above it.**
   #
-  #   | SDK    | pub get | analyze | test (84) | compile exe + positive answer |
-  #   |--------|---------|---------|-----------|-------------------------------|
-  #   | 3.7.0  |    ok   |   ok    |    ok     |              ok               |
-  #   | 3.8.0  |    ok   |   ok    |    ok     |              ok               |
-  #   | 3.11.5 |    ok   |   ok    |    ok     |              ok               |
-  sdk: ">=3.7.0 <4.0.0"
+  # On Dart 3.7.0 the package **behaves differently**, and CI is what found it:
+  # `[NSURL URLWithString:]` refuses a non-ASCII `file:` URL there, so
+  # `launchUrl` raises `UrlLaunchException` where every later SDK returns
+  # `false`. Same macOS image, same `ffi 2.2.0`, byte-identical UTF-8 handed to
+  # the runtime (all three verified) — reproduced on a re-run, so it is
+  # deterministic rather than flaky, and the mechanism is **not yet explained**.
+  # A floor is a promise about behaviour, not only about resolution, so it stops
+  # where the behaviour stops being uniform.
+  #
+  # Verified on real SDKs rather than by lowering the constraint on a newer
+  # toolchain — that only proves the language version, and `pub get` resolves
+  # against whatever is *installed*, which is why a floor of 3.0.0 also appeared
+  # to "pass" locally while `ffi` would have refused it.
+  sdk: ">=3.8.0 <4.0.0"
 
 dependencies:
   # The allocator and UTF-16 marshalling `dart:ffi` does not ship. Pure Dart,

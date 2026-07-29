@@ -1,6 +1,6 @@
 ## 0.1.1
 
-**Lowers the SDK floor from `^3.11.5` to `>=3.7.0` — Flutter 3.29.1 and newer.**
+**Lowers the SDK floor from `^3.11.5` to `>=3.8.0` — Flutter 3.32.0 and newer.**
 No API change.
 
 - **The old floor was never a requirement.** `dart create` wrote whatever SDK was
@@ -9,8 +9,14 @@ No API change.
   is carried down to every consumer, 0.1.0 was silently demanding an SDK upgrade
   of anyone adopting it: a Flutter 3.32 app, for instance, would have had to move
   to Flutter 3.41 to add a package that needed nothing from it.
-- **3.7.0 is where `package:ffi` stops**, so this is the widest range the single
-  runtime dependency permits.
+- **The floor stops one above what resolution allows, and CI is why.**
+  `package:ffi` would permit 3.7.0, and the first CI run at that floor went red
+  on macOS — deterministically, reproduced on a re-run. There,
+  `[NSURL URLWithString:]` refuses a non-ASCII `file:` URL, so `launchUrl`
+  **throws** where every later SDK returns `false`. Same macOS image, same
+  `ffi 2.2.0`, byte-identical UTF-8 reaching the runtime — all three checked —
+  and the mechanism is not yet explained. A floor is a promise about behaviour,
+  not only about resolution, so 3.8.0 it is.
 - **Verified on real SDKs**, not by lowering the constraint on a newer toolchain
   — that only proves the language version, and resolution happens against
   whatever is installed. Dart 3.7.0 and 3.8.0 were downloaded and run: `pub get`,

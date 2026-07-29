@@ -796,3 +796,70 @@ two apart. It is not guarded by a test, deliberately: that path holds **no kerne
 object of its own**, so there is no release to delete and a mutation gate has
 nothing to grip. The clearance holds **as long as that stays true** — the day the
 launch path takes ownership of any OS handle, it needs its own guard.
+
+---
+
+## #13 — A CI leg added to keep a promise honest went red on its first run, and the promise was the wrong one — Steps 4, 7
+
+**Rule it proves:** an SDK floor is a promise about **behaviour**, not about
+resolution — and the only thing that can tell the difference is executing the
+floor. Also: `lessons.md` #10 again, one layer down. A *version* you did not run
+is as unverified as a machine you did not configure.
+
+The `environment: sdk:` constraint had been `^3.11.5` since the initial commit —
+a `dart create` default nobody chose, carried down to every consumer by a caret
+range. Measuring the real floor gave `>=3.7.0`, where `package:ffi` stops, and
+Dart 3.7.0 and 3.8.0 were downloaded and run in full to earn it. A CI leg was
+added at 3.7.0 so the claim could not decay.
+
+**Seven of eight legs were green. The eighth was `gates (macos-latest, Dart
+3.7.0)`:**
+
+```
+test/macos/ns_workspace_integration_test.dart:
+  the real NSWorkspace launch path survives a non-ASCII URL without crashing
+Expected: MacOpenOutcome:<MacOpenOutcome.notOpened>
+  Actual: MacOpenOutcome:<MacOpenOutcome.invalidUrl>
+```
+
+Every local verification had been done on **Windows**, and that test is
+`@TestOn('mac-os')` — so it had never executed at the floor anywhere. The one
+combination nobody could run locally is the one that broke.
+
+**The candidates were measured away rather than argued away:**
+
+| Hypothesis | Check | Result |
+|---|---|---|
+| different macOS image | both legs' `Set up job` | identical — `macos-26-arm64/20260720.0258` |
+| different `package:ffi` | both legs' `pub get` | identical — `ffi 2.2.0` |
+| SDK encodes UTF-8 differently | byte dump on 3.7.0 / 3.8.0 / 3.11.5 | **identical 36 bytes** |
+| flaky | re-ran the failed job alone | **failed identically** — deterministic |
+
+So the same bytes, on the same OS, through the same `ffi`, answer differently on
+Dart 3.7.0 than on 3.12.2 — reproducibly, and **the mechanism is still not
+explained.** It is recorded as measured-but-unexplained rather than given a
+plausible cause, per the "unconfirmed ≠ absent" rule that also forbids inventing
+one.
+
+**Why loosening the test would have been the wrong fix — and was the first thing
+proposed.** The test's own comment calls it *"deliberately weak … crash
+detection"*, and both outcomes are clean returns, so relaxing it to "returns
+something" looked like restoring a test to its stated scope (ADR-0002 question
+6). That reasoning was wrong, because `MacOpenOutcome.invalidUrl` is **mapped to
+a throw** by the backend: on 3.7.0 a consumer's non-ASCII `file:` URL raises
+`UrlLaunchException` where on 3.12 it returns `false`. The difference is
+user-visible behaviour, not a test detail, and a looser assertion would have
+shipped **two behaviours under one version range** with nothing recording it.
+
+**What replaced it.** The floor moved to **3.8.0** — one above what resolution
+allows — and `environment.sdk` and the CI matrix moved **in the same commit**,
+because `theflow.md` Step 7's "never move a threshold to turn a build green"
+applies exactly here: raising the CI number alone would have been lowering the
+promise silently. The hidden-state entry claiming *"nil is nearly unreachable"*
+is corrected in place; it was written from one SDK and read as a property of
+`NSURL`.
+
+**Cost had the leg not existed:** the package would have declared `>=3.7.0`,
+resolved cleanly for a consumer on Flutter 3.29, and thrown on a Korean or
+Cyrillic filename where the same code returned `false` for everyone else — the
+kind of defect that arrives as a user's bug report about *their* file names.

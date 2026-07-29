@@ -270,11 +270,20 @@ finds another.
   links Foundation, so URL construction succeeds while every workspace call
   quietly says no. Classes therefore resolve through `_classInAppKit`, which
   calls `DynamicLibrary.open` directly and **throws** on a `nullptr` lookup.
-- **`[NSURL URLWithString:]` is lenient — nil is nearly unreachable.** It returned
-  a non-nil `NSURL` for the empty string, `"not a url with spaces"`, and every
-  scheme tried (measured). So `MacOpenOutcome.invalidUrl` almost never fires from
-  real input; it exists so a genuine parse failure does not masquerade as "no
-  handler", and it is exercised only through the injected `openUrl` seam.
+- **`[NSURL URLWithString:]`'s leniency is SDK-dependent, and `invalidUrl` IS
+  reachable from real input.** It returned a non-nil `NSURL` for the empty
+  string, `"not a url with spaces"`, and every scheme tried — **on a current
+  SDK**. On **Dart 3.7.0 / macOS 26 arm64 it refuses a non-ASCII `file:` URL**
+  (`file:///zzz-없는파일-ффи.zzzq`), so `MacOpenOutcome.invalidUrl` fires and
+  `launchUrl` **throws** where every later SDK returns `false` — the same input
+  behaving differently for a consumer depending on *their* SDK.
+  **⚠ The mechanism is not explained.** Ruled out by measurement: the macOS
+  image (identical, `macos-26-arm64/20260720.0258`), `package:ffi` (identical,
+  2.2.0), and the UTF-8 bytes reaching the runtime (byte-identical across 3.7.0,
+  3.8.0 and 3.11.5). Reproduced on a re-run, so it is deterministic, not flaky.
+  This is why the SDK floor is **3.8.0 and not the 3.7.0 `package:ffi` would
+  allow**. Do not restore the old sentence without re-measuring; it was written
+  from one SDK and read as a property of `NSURL`.
 - **`URLForApplicationToOpenURL:` answers per-URL, where Windows answers
   per-scheme.** It returns the application that *would* open this exact URL, or
   `nil`. Measured, agreeing with Swift: `https:` → Google Chrome, `mailto:` →

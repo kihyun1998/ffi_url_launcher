@@ -41,12 +41,20 @@ jobs:
         # declared floor nothing executes is a claim rather than a guarantee —
         # and the way it rots is silent: someone uses a newer language feature,
         # every green stays green, and a consumer on the declared minimum
-        # discovers it. `3.7.0` is where `package:ffi` stops, so it is the
-        # widest range the single runtime dependency permits.
+        # discovers it.
         #
-        # Raising this number to fix a red build **is** lowering the promise;
-        # raise `environment.sdk` in the same commit or not at all.
-        sdk: [stable, "3.7.0"]
+        # **It earned that on its first run.** Added at `3.7.0` — where
+        # `package:ffi` stops — it went red on macOS only, deterministically:
+        # `[NSURL URLWithString:]` refuses a non-ASCII `file:` URL on that SDK,
+        # so `launchUrl` throws where every later SDK returns `false`. Seven of
+        # eight legs were green and nothing else in the matrix could have seen
+        # it.
+        #
+        # **Raising this number to fix a red build is lowering the promise** —
+        # so it moved to 3.8.0 only together with `environment.sdk`, which is now
+        # 3.8.0 for that reason and says so. The two must never disagree: this
+        # leg exists to test the floor the package actually declares.
+        sdk: [stable, "3.8.0"]
 
     steps:
       - uses: actions/checkout@v5
@@ -103,7 +111,7 @@ jobs:
         # package. The generated consumer inherits the constraint from this
         # package's own pubspec rather than naming one, so this leg fails if the
         # two ever disagree.
-        sdk: [stable, "3.7.0"]
+        sdk: [stable, "3.8.0"]
 
     steps:
       - uses: actions/checkout@v5

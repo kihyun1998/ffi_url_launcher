@@ -76,12 +76,11 @@ void main() {
     test('says nothing about a code when the platform has none', () {
       // macOS answers with a bare BOOL. An invented code would be worse than
       // an absent one, and a dangling "(code null)" worse still.
-      final text =
-          UrlLaunchException(
-            url: Uri.parse('https://a.test'),
-            target: 'https://a.test',
-            message: 'the open request was refused',
-          ).toString();
+      final text = UrlLaunchException(
+        url: Uri.parse('https://a.test'),
+        target: 'https://a.test',
+        message: 'the open request was refused',
+      ).toString();
 
       expect(text, isNot(contains('code')));
       expect(text, isNot(contains('null')));

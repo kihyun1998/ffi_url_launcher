@@ -235,29 +235,32 @@ final _getCurrentProcess = _kernel32
     );
 
 // BOOL GetProcessHandleCount(HANDLE hProcess, PDWORD pdwHandleCount);
-final _getProcessHandleCount = _kernel32.lookupFunction<
-  Int32 Function(Pointer<Void>, Pointer<Uint32>),
-  int Function(Pointer<Void>, Pointer<Uint32>)
->('GetProcessHandleCount');
+final _getProcessHandleCount = _kernel32
+    .lookupFunction<
+      Int32 Function(Pointer<Void>, Pointer<Uint32>),
+      int Function(Pointer<Void>, Pointer<Uint32>)
+    >('GetProcessHandleCount');
 
-final _regOpenKeyExW = _advapi32.lookupFunction<
-  Uint32 Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    Uint32,
-    Uint32,
-    Pointer<Pointer<NativeType>>,
-  ),
-  int Function(
-    Pointer<NativeType>,
-    Pointer<Utf16>,
-    int,
-    int,
-    Pointer<Pointer<NativeType>>,
-  )
->('RegOpenKeyExW');
+final _regOpenKeyExW = _advapi32
+    .lookupFunction<
+      Uint32 Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        Uint32,
+        Uint32,
+        Pointer<Pointer<NativeType>>,
+      ),
+      int Function(
+        Pointer<NativeType>,
+        Pointer<Utf16>,
+        int,
+        int,
+        Pointer<Pointer<NativeType>>,
+      )
+    >('RegOpenKeyExW');
 
-final _regCloseKey = _advapi32.lookupFunction<
-  Uint32 Function(Pointer<NativeType>),
-  int Function(Pointer<NativeType>)
->('RegCloseKey');
+final _regCloseKey = _advapi32
+    .lookupFunction<
+      Uint32 Function(Pointer<NativeType>),
+      int Function(Pointer<NativeType>)
+    >('RegCloseKey');
