@@ -1,33 +1,3 @@
-## 0.1.1
-
-**Lowers the SDK floor from `^3.11.5` to `>=3.8.0` — Flutter 3.32.0 and newer.**
-No API change.
-
-- **The old floor was never a requirement.** `dart create` wrote whatever SDK was
-  installed at the time, and it stayed untouched through 0.1.0 — four minor
-  versions above anything this package uses. Because an `environment` constraint
-  is carried down to every consumer, 0.1.0 was silently demanding an SDK upgrade
-  of anyone adopting it: a Flutter 3.32 app, for instance, would have had to move
-  to Flutter 3.41 to add a package that needed nothing from it.
-- **The floor stops one above what resolution allows, and CI is why.**
-  `package:ffi` would permit 3.7.0, and the first CI run at that floor went red
-  on macOS — deterministically, reproduced on a re-run. There,
-  `[NSURL URLWithString:]` refuses a non-ASCII `file:` URL, so `launchUrl`
-  **throws** where every later SDK returns `false`. Same macOS image, same
-  `ffi 2.2.0`, byte-identical UTF-8 reaching the runtime — all three checked —
-  and the mechanism is not yet explained. A floor is a promise about behaviour,
-  not only about resolution, so 3.8.0 it is.
-- **Verified on real SDKs**, not by lowering the constraint on a newer toolchain
-  — that only proves the language version, and resolution happens against
-  whatever is installed. Dart 3.7.0 and 3.8.0 were downloaded and run: `pub get`,
-  `analyze --fatal-infos`, all 84 tests, and a consumer compiled with
-  `dart compile exe` answering `canLaunchUrlSync('https://dart.dev')` → `true`.
-  Both are now CI legs, so the floor stays honest rather than decaying the first
-  time someone uses a newer language feature.
-- Formatting is unchanged in meaning but differs on disk: `dart format` derives
-  its style from the declared language version, so lowering the floor reformats
-  the package. Verified byte-identical output across 3.7.0, 3.8.0 and current.
-
 ## 0.1.0
 
 Initial slice — Windows and macOS launch.
