@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   gates:
-    name: gates (${{ matrix.os }})
+    name: gates (${{ matrix.os }}, Dart ${{ matrix.sdk }})
     runs-on: ${{ matrix.os }}
     strategy:
       # Both legs always run. Windows failing tells you nothing about macOS —
@@ -35,7 +35,9 @@ jobs:
       # first failure would throw away the half of the answer still owed.
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [macos-latest]
+        # DIAGNOSTIC BRANCH ONLY — spans the range where the behaviour flips.
+        sdk: [stable, "3.11.5", "3.10.0", "3.9.0", "3.8.0"]
 
     steps:
       - uses: actions/checkout@v5
@@ -46,7 +48,7 @@ jobs:
       # meant to test it.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
 
       # Every gate is its own step, so each reports its own status and none is
       # piped. `dart test | tail -1 && …` always succeeds: a pipeline's exit
@@ -54,14 +56,6 @@ jobs:
       - name: dart pub get
         run: dart pub get
 
-      # Must follow `pub get`: `dart format` reads the language version out of
-      # `package_config.json`, so on a clean checkout it disagrees with a local
-      # run until dependencies are resolved.
-      - name: dart format
-        run: dart format --output=none --set-exit-if-changed .
-
-      - name: dart analyze
-        run: dart analyze --fatal-infos
 
       # Includes the real-FFI integration tests. Every input they hand to a
       # launch path is measured UI-free — a target that does not exist. The
@@ -72,12 +66,6 @@ jobs:
       - name: dart test
         run: dart test
 
-      # Guards the "ffi only" invariant. Its sibling below cannot see a
-      # Windows-only dependency: measured, adding `win32` leaves
-      # `dart compile exe` perfectly green while misstating what platforms this
-      # package supports.
-      - name: dependency invariant
-        run: dart run tool/check_dependencies.dart
 
   compile-exe:
     name: dart compile exe (${{ matrix.os }})

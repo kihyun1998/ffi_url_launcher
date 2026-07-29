@@ -52,7 +52,7 @@ environment:
   # **Note what this value is not:** 3.11.5 has never been run on macOS either.
   # The `stable` CI leg is 3.12.2. This is the status quo of the shipped package,
   # not a verified floor.
-  sdk: ^3.11.5
+  sdk: ">=3.8.0 <4.0.0"  # DIAGNOSTIC BRANCH ONLY
 
 dependencies:
   # The allocator and UTF-16 marshalling `dart:ffi` does not ship. Pure Dart,
