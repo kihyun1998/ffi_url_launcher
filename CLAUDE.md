@@ -80,7 +80,7 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
 
 ### Domain docs
 
-**Single-context** — `CONTEXT.md` plus `docs/adr/` at the repo root.
+**Single-context** — `GLOSSARY.md` plus `docs/adr/` at the repo root.
 `docs/adr/` holds two records:
 
 - **ADR-0001, "Every URL is asked two independent questions, in order"** — read it
@@ -91,7 +91,7 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
   failing, and the fifth was one review round away from copying the fix for the
   fourth straight back into the same defect.
 
-`CONTEXT.md` does not exist yet; `/domain-modeling` creates it lazily. The rest of the decision trail is the issue tracker plus
+`GLOSSARY.md` does not exist yet; `/domain-modeling` creates it lazily. The rest of the decision trail is the issue tracker plus
 `.scratch/ffi-url-launcher/issues/`.
 
 ### Issue tracker

@@ -5,7 +5,7 @@ Project-specific data for the `theflow` skill. The skill holds the portable
 [`lessons.md`](lessons.md).
 
 Identity lives in [`../../CLAUDE.md`](../../CLAUDE.md). There is **no
-`CONTEXT.md` and no `docs/adr/` yet** — until one exists, "the decision trail"
+`GLOSSARY.md` and no `docs/adr/` yet** — until one exists, "the decision trail"
 below means the issue tracker plus the design record in
 `.scratch/ffi-url-launcher/issues/`.
 
