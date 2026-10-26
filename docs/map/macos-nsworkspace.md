@@ -1,89 +1,82 @@
-# macOS: NSWorkspace through the Objective-C runtime
+# macOS Objective-C runtime binding
 
-These are states the OS tracks, or marshalling the reference's language hid, that a first-principles
-model omits because the model "looks correct". Read this before touching `lib/src/backends/macos/`, and add an entry
-when a pass finds another. Incident evidence: [`lessons.md`](../agents/lessons.md).
+## What it is
+The raw marshalling into the Objective-C runtime that both macOS operations rest
+on: `libobjc`, AppKit, one `objc_msgSend` binding per call signature, the three
+classes and five selectors the package sends, and the autorelease pool. (The
+path is kept from the earlier map, where it also held launch and lookup; those
+are now [macos-launch](macos-launch.md) and
+[macos-handler-lookup](macos-handler-lookup.md).)
 
-- **`NSWorkspace.open` returns a bare `BOOL`** with no error code, while the
-  Windows path has a rich one. The public exception therefore carries a
-  **nullable** platform code, and it is always null on macOS. Do not invent a
-  code to make the platforms look symmetric.
-- **`NSWorkspace.open`'s `NO` is honest and reachable, unlike the Windows `false`.**
-  Measured on macOS 14.5 (arm64): both a scheme nothing handles and a `file:`
-  URL for a missing file answer `NO`. This is the inverse of the Windows hazard
-  where 42 = success for an unregistered scheme, so on macOS `launch` returning
-  `false` genuinely means "nothing opened this". `MacOpenOutcome.notOpened` is
-  the decode.
-- **But an unregistered scheme still raises a modal panel** — *"there is no
-  application set to open the URL"*, with App Store / Choose Application /
-  Cancel. `NO` **and** a window; the two are independent. So the CI-safe launch
-  input is the same on both platforms — **a target that does not exist**, never
-  a scheme nothing is registered for (`lessons.md` #8 correction, #9). A missing
-  `file:` URL is measured UI-free and is the one the integration test uses.
-- **`URLForApplicationToOpenURL:` is a lookup and shows nothing**, for any input
-  including that same scheme. So `canOpen`'s integration test may assert live
-  what `launch`'s must skip — the CI hazard belongs to the *operation*, not to
-  the URL.
-- **A nullptr Objective-C class answers every message with `nil`/`0`/`NO`,
-  silently.** AppKit must be mapped in before `objc_getClass('NSWorkspace')`, and
-  a lazy `final` holding the `DynamicLibrary` that nothing reads is never
-  evaluated — which cost this package a whole false measurement (`lessons.md`
-  #9). `NSString`/`NSURL` keep working throughout, because the Dart VM already
-  links Foundation, so URL construction succeeds while every workspace call
-  quietly says no. Classes therefore resolve through `_classInAppKit`, which
-  calls `DynamicLibrary.open` directly and **throws** on a `nullptr` lookup.
-- **`[NSURL URLWithString:]`'s leniency is SDK-dependent — and the leniency is
-  not what the package relies on.** It returns a non-nil `NSURL` for the empty
-  string, `"not a url with spaces"`, and every scheme tried **from Dart 3.10.0
-  on**. On **3.9.0 and older it runs in a strict RFC 3986 mode**: non-ASCII *and
-  spaces* are refused and only percent-encoded input is accepted. Boundary
-  measured exactly across 3.8.0 / 3.9.0 / 3.10.0 / 3.11.5 / stable on one macOS
-  image, with `NSString` fine for every input — the nil is `URLWithString:`
-  alone.
+## Governing decisions
+- [ADR-0002](../adr/0002-every-guard-is-asked-six-questions.md) — the
+  autorelease guard is one of its exemplars, and FFI object ownership is where
+  all six questions are mandatory (`CLAUDE.md`, second-pass trigger 2).
 
-  **This is unreachable through the public API**, and that is not luck: both
-  backend methods hand over `url.toString()`, and `Uri.toString()`
-  percent-encodes non-ASCII and spaces, which is exactly what the strict mode
-  wants. Asserted on 3.9.0 — seven inputs that fail raw all construct fine once
-  routed through `Uri`.
+## Design model
+- **A nullptr class answers every message with `nil`/`0`/`NO`, silently.** A
+  probe held AppKit in a lazy `final` nothing read, so AppKit never loaded and
+  `NSWorkspace` "said no" to everything; `NSString`/`NSURL` kept working because
+  the Dart VM already links Foundation ([lessons.md](../agents/lessons.md) #9).
+  So every class resolves through `_classInAppKit`, which calls
+  `DynamicLibrary.open` on the path to a lookup it then checks, and **throws a
+  `StateError` on `nullptr`** (`objc.dart — _classInAppKit`; the raw
+  `_objcClass` is private for the same reason).
+- **`objc_msgSend` is declared once per exact call signature.** On arm64 the
+  compiler emits each call with the callee's prototype and the runtime does not
+  adapt, so reusing one binding across signatures marshals the wrong registers and
+  breaks silently. Four bindings, named for their shape (`objc.dart` comment
+  block).
+- **`BOOL` is read as `Uint8`, tested `!= 0`** — `_Bool` on arm64, `signed char`
+  on x86_64, one byte either way (`objc.dart — msgSendIdReturningBool`).
+- **A `SEL` is interned and safe to cache — measured.** On macOS 14.5 (arm64)
+  `sel_registerName` returned an identical pointer across 10,000 registrations of
+  each name, `sel_getUid` agreed, `sel_getName` round-tripped, and 5,000 unrelated
+  registrations moved none of them. Caching saves ~4% on the lookup path (7.2 →
+  6.9 µs, ±0.3 µs) — **not the reason**: the reason is that the whole Objective-C
+  surface, three classes and five selectors, is now auditable in one place
+  (`objc.dart` selector comment block).
+- **A Dart CLI has no Cocoa runloop**, so nothing drains the default pool;
+  `inAutoreleasePool` pushes and pops one around every operation, with the pop in
+  `finally`. Sibling `just_font_scan` solved the same for CoreText.
+  Guarded by `test/macos/ns_workspace_integration_test.dart`, *"repeated real
+  calls do not accumulate native memory"* (50,000 iterations; ceiling derived
+  beside it).
+- **Ownership**: classes, selectors and `sharedWorkspace` are runtime-owned and
+  never released; `NSString`/`NSURL` from convenience constructors are
+  autoreleased; the UTF-8 buffer is freed with the arena once `NSString` has
+  copied it (`ns_workspace.dart — _nsUrlFrom`).
+- **`[NSURL URLWithString:]` is strict below Dart 3.10.0.** From 3.10.0 it
+  accepts the empty string, spaces and every scheme tried; on 3.9.0 and older it
+  refuses non-ASCII and spaces and accepts only percent-encoded input — boundary
+  measured across 3.8.0 / 3.9.0 / 3.10.0 / 3.11.5 / stable on one macOS image,
+  `NSString` fine throughout ([lessons.md](../agents/lessons.md) #13).
+  Unreachable through the public API, because both backend methods hand over
+  `url.toString()` — asserted on 3.9.0, seven raw-failing inputs construct once
+  routed through `Uri`. **So the rule is about test inputs**: any test driving
+  `workspaceOpenUrl` / `workspaceCanOpenUrl` passes `Uri.parse(…).toString()`,
+  never a raw literal. The exposed caller is one reaching the seam through
+  `UrlLauncher.withBackend` on an old SDK — closed by the floor
+  ([sdk-floor-runs-in-ci](sdk-floor-runs-in-ci.md)).
+- **No build-hook dependency writes this as Objective-C** — `package:objective_c`
+  would break `dart compile exe` ([runtime-dependencies](runtime-dependencies.md)).
 
-  **So the rule is about test inputs, not about the floor.** Any test driving
-  `workspaceOpenUrl` / `workspaceCanOpenUrl` must pass
-  `Uri.parse(…).toString()`, never a raw literal, or it measures a string the
-  package cannot produce — which is how this cost a red matrix and two wrong SDK
-  floors (`lessons.md` #13). The one genuinely exposed caller is someone reaching
-  the seam directly through `UrlLauncher.withBackend` on an old SDK.
+## Code
+- `lib/src/backends/macos/objc.dart — objcGetClass`, `selRegisterName`, `msgSendReturningId`, `msgSendCStringReturningId`, `msgSendIdReturningId`, `msgSendIdReturningBool`, `_objcClass`, `nsWorkspaceClass`, `nsStringClass`, `nsUrlClass`, `selSharedWorkspace`, `selOpenUrl`, `selUrlForApplicationToOpenUrl`, `selStringWithUtf8String`, `selUrlWithString`, `_selector`, `inAutoreleasePool`, `_objc`, `_classInAppKit`, `_objcPoolPush`, `_objcPoolPop`
 
-  `MacOpenOutcome.invalidUrl` is therefore still near-unreachable in practice,
-  but for a **different reason than originally recorded**: not because `NSURL`
-  is lenient, but because `Uri` normalises before it is asked.
-- **`URLForApplicationToOpenURL:` answers per-URL, where Windows answers
-  per-scheme.** It returns the application that *would* open this exact URL, or
-  `nil`. Measured, agreeing with Swift: `https:` → Google Chrome, `mailto:` →
-  Mail, `file:` → TextEdit, unregistered scheme → `nil`. This is why the seam is
-  `canOpen(Uri)` and not `schemeRegistered(String)` — and why a `file:` URL is
-  answered by its *extension's* handler on macOS, while on Windows `HKCR\file`
-  carries `URL Protocol` unconditionally and always answers `true`. **The same
-  call, asked about the same URL, can legitimately differ between the two.**
-- **The returned `NSURL` is autoreleased, not owned.** It comes from a `URLFor…`
-  accessor rather than a `copy`/`create`, so it must not be released; the pool
-  around the call bounds it.
-- **A Dart CLI has no Cocoa runloop, so nothing drains the autorelease pool.**
-  Autoreleased objects accumulate until process exit unless the call is wrapped
-  in an explicit `objc_autoreleasePoolPush` / `Pop`. Sibling `just_font_scan`
-  already solved this for CoreText; the same discipline applies here.
-- **`objc_msgSend` must be declared per call signature.** Reusing one declaration
-  across calls with different return types breaks silently on arm64.
-- **A `SEL` is interned and safe to cache — measured, not recited.** On macOS
-  14.5 (arm64): `sel_registerName` returned an identical pointer across 10,000
-  registrations of each name, `sel_getUid` agreed with it, `sel_getName`
-  round-tripped the exact string, and registering 5,000 unrelated selectors
-  afterwards moved none of them — so no rehash can leave a cached `SEL` stale.
-  Owned by the runtime for the life of the process; never released. The five
-  this package sends are resolved once in `objc.dart`, beside the three classes,
-  so **the complete Objective-C surface it touches is auditable in one place.**
-- **`NSWorkspace` wants the main thread**, and `ShellExecuteW` depends on the COM
-  apartment the calling thread already has. Neither call may be moved into a
-  spawned isolate. **This is why the package's `Future` API is a wrapper over a
-  synchronous call and not a real one** — the async signature exists to keep the
-  option open, not because work is offloaded.
+## Reference behaviour
+- Sibling `just_font_scan`'s `coretext_bindings.dart` — `libobjc.A.dylib`, the
+  pool push/pop, `CFRelease` ([thegraph.md](../agents/thegraph.md)).
+
+## Cross-cutting invariants
+- [platform-libraries-open-lazily](platform-libraries-open-lazily.md)
+- [system-libraries-load-by-absolute-path](system-libraries-load-by-absolute-path.md)
+- [sdk-floor-runs-in-ci](sdk-floor-runs-in-ci.md)
+
+## Blast radius
+- [macOS launch](macos-launch.md) and [macOS handler lookup](macos-handler-lookup.md) — both send their messages through these bindings and depend on the pool bounding every autoreleased object.
+- [Proving OS effects](proving-os-effects.md) — a binding change is FFI ownership: all six ADR-0002 questions apply, and the memory guard must still go red when the pool is removed.
+- [Runtime dependencies](runtime-dependencies.md) — this file exists because no Objective-C dependency may be taken.
+
+## Known holes / open
+**None.**

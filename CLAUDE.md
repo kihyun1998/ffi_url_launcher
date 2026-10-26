@@ -99,6 +99,15 @@ recorded there.
   macOS; and the two reasons to choose this package — no Flutter dependency, and
   `dart compile exe` works.
 
+## Territory map
+
+The map's hub is [`docs/map/README.md`](docs/map/README.md). **Before designing a
+change** (thegraph's `read-it`), open the territory it touches and follow its
+`## Blast radius` and `## Cross-cutting invariants`. **After it lands**
+(`check-it`), correct every note the change made false. When a fix reveals a
+fact, ask whether it holds at every site that shares the same assumption — if
+yes, the fix lands with an invariant note.
+
 ## Comments
 
 A comment says what the code is. Why it is this way, what it deliberately leaves
