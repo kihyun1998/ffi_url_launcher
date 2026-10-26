@@ -49,7 +49,7 @@ final class MacosUrlLauncherBackend implements UrlLauncherBackend {
       // is a genuine fault, not the ordinary "nothing is registered" — so it
       // throws rather than returning `false`. There is no platform code:
       // `NSWorkspace` deals in `BOOL`, and inventing one would be worse than
-      // its absence (`docs/agents/theflow.md`, macOS hidden-state list).
+      // its absence (`docs/map/macos-launch.md`).
       MacOpenOutcome.invalidUrl => throw UrlLaunchException(
         url: url,
         target: target,

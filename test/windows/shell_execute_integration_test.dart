@@ -41,8 +41,8 @@ void main() {
       // "would change which error the shell reports". That was measured and is
       // false: correct UTF-16, UTF-8 bytes cast to Utf16, and low-byte
       // truncation all return 2 for a path that does not exist. The assertion
-      // could not fail for the reason it named — theflow Step 4's tautological
-      // proof, in the file that exists to avoid it.
+      // could not fail for the reason it named — the tautological proof of
+      // `docs/map/proving-os-effects.md`, in the file that exists to avoid it.
       //
       // What it still buys is crash detection: a marshalling bug that walked
       // off the end of the buffer would not return cleanly at all.

@@ -19,10 +19,10 @@ corresponding label string from this table.
 Not urgency — **evidence**. `ready-for-agent` means the finding was reproduced
 by whoever filed it and the fix is specified. `needs-triage` means it came from
 a report (a completeness pass, a subagent, a user) and has **not** been
-reproduced, so the first job is confirming it exists. theflow's rule that a
-subagent's probe is a candidate rather than a finding is what this distinction
-encodes: dropping such a candidate silently loses real defects, and promoting it
-silently files unverified claims.
+reproduced, so the first job is confirming it exists. A subagent's probe is a
+candidate rather than a finding, and this distinction encodes that: dropping
+such a candidate silently loses real defects, and promoting it silently files
+unverified claims.
 
 ## Label availability
 

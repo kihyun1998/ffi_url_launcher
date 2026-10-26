@@ -1,10 +1,12 @@
 # lessons (ffi_url_launcher)
 
-Per-incident evidence for the rules in [`theflow.md`](theflow.md). Each entry is
+Per-incident evidence for the rules in [`CLAUDE.md`](../../CLAUDE.md) and the
+notes under [`docs/map/`](../map/). Each entry is
 a real incident with the artifact that proves it — the rules read as
 abstractions without these.
 
-Indexed by the step whose rule it gives teeth to.
+Each heading's step tags name the retired `theflow` step it gave teeth to;
+they are kept as history.
 
 The first three were measured while designing the package, before any
 implementation existed. They are the reason three of its rules are written the
