@@ -80,7 +80,8 @@ of the application that calls it. theflow Step 2 grounds its judgement here.
 
 ### Domain docs
 
-**Single-context** — `GLOSSARY.md` plus `docs/adr/` at the repo root.
+**Single-context** — `GLOSSARY.md` plus `docs/adr/` at the repo root. See
+`docs/agents/domain.md` for how skills consume them.
 `docs/adr/` holds two records:
 
 - **ADR-0001, "Every URL is asked two independent questions, in order"** — read it
@@ -103,3 +104,9 @@ represented, and `docs/agents/triage-labels.md` for the label vocabulary — whe
 
 The long-form design records live in `.scratch/ffi-url-launcher/issues/`; each
 names the GitHub issue that carries its state.
+
+### Triage labels
+
+The five canonical roles, each label string equal to its name (`needs-triage`,
+`needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See
+`docs/agents/triage-labels.md`.
