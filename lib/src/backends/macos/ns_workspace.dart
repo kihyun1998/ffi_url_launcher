@@ -60,7 +60,7 @@ enum MacOpenOutcome {
 /// The call path is one line of Objective-C —
 /// `[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:url]]` — sent
 /// through the runtime because the package takes no build-hook dependency that
-/// would let it be written as Objective-C (`docs/agents/theflow.md`, lessons
+/// would let it be written as Objective-C (`CLAUDE.md`, lessons
 /// #1). `url` is passed as text and `NSURL` parses it; there is no per-platform
 /// string rewriting the way Windows needs for `file:` URLs, so the (B)-question
 /// marshalling of ADR-0001 is a no-op here.

@@ -52,7 +52,7 @@ void main() {
   // *Why not equality:* because the counter is **shared**. `dart test` runs
   // suites as isolates in ONE process (measured: identical pid across two
   // suites, one opening handles while the other dwelt), so this is the
-  // scratch-key collision of `theflow.md` Step 7 with the name requirement
+  // scratch-key collision of `docs/map/gates.md` with the name requirement
   // removed — merely existing is enough to collide. A probe that opened 200
   // files took the count 169 -> 369 before closing them, which is what says a
   // concurrent suite *can* move this by hundreds. So equality is flaky by
@@ -70,7 +70,7 @@ void main() {
   // number was hypothetical, and at 1,000 the guard goes blind to any leak
   // slower than one handle per 20 calls. If a future suite really does churn
   // files enough to make this flaky, the fix is to make the measurement robust —
-  // **not** to raise this number, which `theflow.md` Step 7 forbids outright.
+  // **not** to raise this number, which `docs/map/gates.md` forbids outright.
   const maxHandleGrowth = 100;
 
   group('the registry lookup gives every HKEY back', () {

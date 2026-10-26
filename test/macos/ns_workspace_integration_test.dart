@@ -165,7 +165,7 @@ void main() {
     // Derived from the table above, not tuned to pass: the regression this
     // guards produces ~10 MB here, and the correct code produced 0. Anything
     // between is noise headroom. Raising this to quiet a red build would be
-    // removing the guard — `docs/agents/theflow.md`, Step 7.
+    // removing the guard — `docs/map/gates.md`.
     const maxGrowthKb = 4000;
 
     int rssKb() => ProcessInfo.currentRss ~/ 1024;

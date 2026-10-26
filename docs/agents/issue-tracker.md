@@ -71,8 +71,10 @@ A **spine** is a cluster anchor: one issue per artifact family, holding a
 *hypothesis* rather than a decision — the suspected shared root, the sibling
 roster, and what is explicitly not yet decided. Siblings link to it at filing
 time. It promises nothing, so it is free to close as "one decision after all".
-See `theflow.md` for when one is opened and when it promotes to a decision
-record.
+An issue in an area that already carries a decision record (`ls docs/adr/`) is a
+**conformance item under that record**, never a sibling under a new spine — two
+homes for one throughline is the failure a spine exists to prevent. A spine whose
+siblings turn out to be one decision promotes to a record, as #8 became ADR-0001.
 
 ## History note
 

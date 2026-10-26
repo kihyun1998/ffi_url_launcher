@@ -46,7 +46,7 @@ final Pointer<Void> Function(Pointer<Utf8>) selRegisterName = _objc
 // call with the *callee's* prototype at each site; the runtime does not adapt.
 // Reusing one Dart binding across messages with different argument or return
 // types therefore marshals the wrong number or width of registers and breaks
-// silently (`docs/agents/theflow.md`, macOS hidden-state list). So each of the
+// silently (`docs/map/macos-nsworkspace.md`). So each of the
 // four messages this package sends has its own binding below, named for its
 // shape rather than for the message, because the *shape* is what makes it a
 // distinct C function as far as the ABI is concerned.

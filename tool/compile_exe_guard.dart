@@ -14,7 +14,7 @@
 //
 // The consumer is generated into a temp directory rather than committed. A
 // second `pubspec.yaml` inside the repo would create the out-of-workspace
-// member that `docs/agents/theflow.md` records as *not existing here* — a real
+// member that `docs/map/gates.md` records as *not existing here* — a real
 // blind spot, since `dart test` at the root would not run it.
 //
 // **The generated program must answer something POSITIVELY.** An earlier
@@ -167,7 +167,7 @@ Never _fail(String message) {
 /// Hand-parsed rather than pulled from a YAML package: `tool/` ships inside the
 /// published archive, and taking a dependency for it would put a second entry
 /// beside `ffi` in the very list `check_dependencies.dart` exists to keep at one
-/// (`docs/agents/theflow.md`, the dependency invariant).
+/// (`CLAUDE.md`, the dependency invariant).
 ///
 /// Anchored on the `environment:` block rather than on the first `sdk:` in the
 /// file, because `sdk:` is also how a Flutter dependency is spelled — this
