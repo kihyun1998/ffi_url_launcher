@@ -6,14 +6,12 @@ metadata, platform claim and SDK floor, the archive's contents, the README and
 CHANGELOG as published surfaces, and the release procedure.
 
 ## Governing decisions
-**None** as a record. The release rules are stated in `CLAUDE.md` › Working
-discipline.
+**None** as a record. The release bar is `pub-ready`'s; the SDK-floor rule is
+`CLAUDE.md` › Working discipline.
 
 ## Design model
-- **`dart pub publish` is irreversible — the user runs it, never the agent**;
-  `--dry-run` must report 0 warnings (`CLAUDE.md`).
-- **pub.dev snapshots `CHANGELOG.md` at publish**: a published entry is never
-  rewritten; open a new version (`CLAUDE.md`).
+- **The release bar — who publishes, the dry-run, frozen CHANGELOG entries —
+  is `pub-ready`'s** ([thegraph.md](../agents/thegraph.md) › Release).
 - **The `platforms:` block is a public claim**, rendered by pub.dev — Windows and
   macOS only, matching `supportedPlatforms` (`pubspec.yaml` comment).
 - **The `sdk:` floor is measured, not scaffolded**: `>=3.10.0 <4.0.0`, the

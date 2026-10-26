@@ -23,3 +23,7 @@ and derive marshalling from the OS symbol's documentation and the siblings.
 | sibling `just_font_scan` `lib/src/macos/coretext_bindings.dart` | how it works — ObjC-runtime FFI, autorelease pool | its source tree — raw | example |
 | siblings `just_autostart`, `flutter_inactive_timer` | where files go — pure-Dart package, OS-branching FFI | their source trees — raw | example |
 | `https://pub.dev/api/packages/ffi_url_launcher` | published state | `curl` — raw | binding |
+
+## Release
+
+`pub-ready`

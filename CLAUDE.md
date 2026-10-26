@@ -10,12 +10,9 @@ there.
 - **Convention:** ticket → implement → `/code-review` → commit referencing the
   issue (`Closes #n`) → fast-forward merge to `main` → push → confirm CI green.
   No PR flow; this is a solo repo, matching the family.
-- **Release:** `dart pub publish --dry-run` must report 0 warnings.
-  `dart pub publish` is irreversible — **the user runs it, never the agent.**
-  pub.dev snapshots `CHANGELOG.md` at publish, so a published entry is never
-  rewritten; open a new version. The `sdk:` floor rises only in a minor or major
-  bump with its reason recorded, never as a side effect of a newer language
-  feature.
+- **Release:** before a release, run `pub-ready`. The `sdk:` floor rises only
+  in a minor or major bump with its reason recorded, never as a side effect of a
+  newer language feature.
 - **Always a refuting second pass** (`lens`), whatever the enumeration risk
   `[product]`: (1) anything that decides whether a string reaches `ShellExecuteW`,
   or builds that string — a miss is arbitrary code execution on data the caller
