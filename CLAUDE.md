@@ -113,7 +113,7 @@ Where none seems to hold it, search the folder and the code symbol first; only
 then start a new note, named for what the system does there, not for the file.
 History goes to the commit message. Comments written before this rule still carry
 the rest: never delete one whose content the map does not yet hold — move it
-first (`decant`).
+there first.
 
 ## Agent skills
 
